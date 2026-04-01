@@ -275,10 +275,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ensure generate_spice is appended if generate_netlist is present so we always get spice output for simulator
-    if (codeToRun.includes("generate_netlist()") && !codeToRun.includes("generate_spice(")) {
+    if (codeToRun.includes("generate_netlist()")) {
         codeToRun = codeToRun.replace(
             "generate_netlist()",
-            "generate_netlist()\ntry:\n    generate_spice(file_='circuit.spice')\nexcept Exception:\n    pass\n"
+            "generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass\n"
         );
     }
 
@@ -336,10 +336,10 @@ export async function POST(request: NextRequest) {
                   "from skidl import *\nset_default_tool(KICAD6)"
               );
           }
-          if (retryCodeToRun.includes("generate_netlist()") && !retryCodeToRun.includes("generate_spice(")) {
+          if (retryCodeToRun.includes("generate_netlist()")) {
               retryCodeToRun = retryCodeToRun.replace(
                   "generate_netlist()",
-                  "generate_netlist()\ntry:\n    generate_spice(file_='circuit.spice')\nexcept Exception:\n    pass\n"
+                  "generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass\n"
               );
           }
 

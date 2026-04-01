@@ -344,13 +344,31 @@ export default function OutputPanel({
 
         {activeTab === "simulator" && (
            <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+             {spice && (
+               <button
+                 onClick={() => navigator.clipboard.writeText(spice)}
+                 style={{
+                   alignSelf: "flex-end",
+                   marginBottom: "8px",
+                   padding: "4px 8px",
+                   fontSize: "12px",
+                   background: "var(--bg-tertiary)",
+                   border: "1px solid var(--border-color)",
+                   borderRadius: "var(--radius-sm)",
+                   cursor: "pointer",
+                   color: "var(--text-primary)"
+                 }}
+               >
+                 📋 Copy SPICE for Import
+               </button>
+             )}
              <iframe 
-               src={spice ? `https://www.falstad.com/circuit/circuitjs.html?txt=${encodeURIComponent(spice)}` : "https://www.falstad.com/circuit/circuitjs.html?blank=1"}
+               src="https://www.falstad.com/circuit/circuitjs.html?startCircuit=blank.txt"
                style={{ width: "100%", height: "100%", minHeight: "400px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)" }}
                title="Circuit Simulator and Editor"
              />
              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", textAlign: "center" }}>
-               Built-in SPICE simulator & interactive editor. You can import your downloaded .spice file (File &gt; Import).
+               Built-in circuit simulator. To test your code: <b>1. Copy SPICE</b> above, then <b>2. File &gt; Import</b> and paste the code.
              </div>
            </div>
         )}

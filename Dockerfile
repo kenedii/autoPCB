@@ -9,9 +9,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl python3 python3-pip python3-venv kicad kicad-symbols kicad-footprints && rm -rf /var/lib/apt/lists/*
 
 # Setup Python virtual environment for SKiDL
-RUN python3 -m venv /opt/venv
+RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install skidl
+RUN pip install skidl PySpice
 
 # Copy package files
 COPY package*.json ./
@@ -38,9 +38,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl python3 python3-pip python3-venv kicad kicad-symbols kicad-footprints && rm -rf /var/lib/apt/lists/*
 
 # Setup Python virtual environment for SKiDL
-RUN python3 -m venv /opt/venv
+RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install skidl
+RUN pip install skidl PySpice
 
 ENV NODE_ENV=production
 
