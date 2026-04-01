@@ -10,7 +10,7 @@ export default function DesignWorkspace() {
   const [model, setModel] = useState("gpt-4o");
   const [apiKey, setApiKey] = useState("");
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState("from skidl import *");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [compileStatus, setCompileStatus] = useState<CompileStatus>("idle");
