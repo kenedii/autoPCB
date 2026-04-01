@@ -10,6 +10,7 @@ import {
   RotateCw,
   Terminal,
   PlayCircle,
+  Download,
 } from "lucide-react";
 
 export type CompileStatus = "idle" | "compiling" | "success" | "error" | "retrying";
@@ -21,6 +22,16 @@ interface OutputPanelProps {
   onCompile: () => void;
   hasCode: boolean;
   retryUsed: boolean;
+  schematicSvg?: string;
+  spice?: string;
+  kicadPcb?: string;
+  netlist?: string;
+  kicadSch?: string;
+  cir?: string;
+  lib?: string;
+  gerberZip?: string;
+  drillZip?: string;
+  stepData?: string;
 }
 
 export default function OutputPanel({
@@ -30,7 +41,44 @@ export default function OutputPanel({
   onCompile,
   hasCode,
   retryUsed,
+  schematicSvg,
+  spice,
+  kicadPcb,
+  netlist,
+  kicadSch,
+  cir,
+  lib,
+  gerberZip,
+  drillZip,
+  stepData,
 }: OutputPanelProps) {
+  const [activeTab, setActiveTab] = React.useState<"files" | "schematic" | "simulator">("files");
+
+  const handleDownload = (filename: string, content?: string, isBase64?: boolean) => {
+    if (!content) return;
+    let url;
+    if (isBase64) {
+      const byteCharacters = atob(content);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/octet-stream" });
+      url = window.URL.createObjectURL(blob);
+    } else {
+      const blob = new Blob([content], { type: "text/plain" });
+      url = window.URL.createObjectURL(blob);
+    }
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const getStatusBadge = () => {
     switch (status) {
       case "idle":
@@ -158,8 +206,55 @@ export default function OutputPanel({
           </div>
         )}
 
-        {/* Generated files */}
-        {generatedFiles.length > 0 && (
+        {/* Tabs for files / schematic / simulator */}
+        {(generatedFiles.length > 0 || schematicSvg || status === "success") && (
+          <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--border-color)", paddingBottom: "8px", marginTop: "8px" }}>
+            <button
+              onClick={() => setActiveTab("files")}
+              style={{
+                background: "none",
+                border: "none",
+                color: activeTab === "files" ? "var(--text-primary)" : "var(--text-muted)",
+                fontWeight: activeTab === "files" ? 600 : 400,
+                cursor: "pointer",
+                padding: "4px 8px"
+              }}
+            >
+              Files
+            </button>
+            {schematicSvg && (
+              <button
+                onClick={() => setActiveTab("schematic")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: activeTab === "schematic" ? "var(--text-primary)" : "var(--text-muted)",
+                  fontWeight: activeTab === "schematic" ? 600 : 400,
+                  cursor: "pointer",
+                  padding: "4px 8px"
+                }}
+              >
+                Schematic
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab("simulator")}
+              style={{
+                background: "none",
+                border: "none",
+                color: activeTab === "simulator" ? "var(--text-primary)" : "var(--text-muted)",
+                fontWeight: activeTab === "simulator" ? 600 : 400,
+                cursor: "pointer",
+                padding: "4px 8px"
+              }}
+            >
+              Simulator/Editor
+            </button>
+          </div>
+        )}
+
+        {/* Tab Contents */}
+        {activeTab === "files" && generatedFiles.length > 0 && (
           <div className="animate-fade-in">
             <div
               style={{
@@ -176,26 +271,88 @@ export default function OutputPanel({
               Generated Files
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {generatedFiles.map((file, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: "8px 12px",
-                    background: "var(--bg-tertiary)",
-                    borderRadius: "var(--radius-sm)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "13px",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <FileCode2 size={14} style={{ color: "var(--accent-secondary)" }} />
-                  {file}
-                </div>
-              ))}
+              {generatedFiles.map((file, i) => {
+                let content = "";
+                let isBase64 = false;
+                if (file.endsWith(".kicad_pcb")) content = kicadPcb || "";
+                else if (file.endsWith(".kicad_sch")) content = kicadSch || "";
+                else if (file.endsWith(".net")) content = netlist || "";
+                else if (file.endsWith(".spice")) content = spice || "";
+                else if (file.endsWith(".cir")) content = cir || "";
+                else if (file.endsWith(".lib")) content = lib || "";
+                else if (file.endsWith(".gbr.zip")) { content = gerberZip || ""; isBase64 = true; }
+                else if (file.endsWith(".drl.zip")) { content = drillZip || ""; isBase64 = true; }
+                else if (file.endsWith(".step")) { content = stepData || ""; isBase64 = true; }
+
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "8px 12px",
+                      background: "var(--bg-tertiary)",
+                      borderRadius: "var(--radius-sm)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                      fontSize: "13px",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <FileCode2 size={14} style={{ color: "var(--accent-secondary)" }} />
+                      {file}
+                    </div>
+                    <button
+                      onClick={() => handleDownload(file, content, isBase64)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--accent-secondary)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                      title="Download file"
+                    >
+                      <Download size={14} /> Download
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
+        )}
+
+        {activeTab === "schematic" && schematicSvg && (
+          <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div
+              style={{
+                flex: 1,
+                background: "white", 
+                borderRadius: "var(--radius-sm)",
+                overflow: "auto",
+                padding: "8px",
+                border: "1px solid var(--border-color)",
+                minHeight: "300px" // give it some room
+              }}
+              dangerouslySetInnerHTML={{ __html: schematicSvg }}
+            />
+          </div>
+        )}
+
+        {activeTab === "simulator" && (
+           <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+             <iframe 
+               src={spice ? `https://www.falstad.com/circuit/circuitjs.html?txt=${encodeURIComponent(spice)}` : "https://www.falstad.com/circuit/circuitjs.html?blank=1"}
+               style={{ width: "100%", height: "100%", minHeight: "400px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)" }}
+               title="Circuit Simulator and Editor"
+             />
+             <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", textAlign: "center" }}>
+               Built-in SPICE simulator & interactive editor. You can import your downloaded .spice file (File &gt; Import).
+             </div>
+           </div>
         )}
 
         {/* Idle state */}

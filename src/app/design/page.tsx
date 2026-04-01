@@ -8,6 +8,7 @@ import OutputPanel, { CompileStatus } from "@/components/output-panel";
 
 export default function DesignWorkspace() {
   const [model, setModel] = useState("gpt-4o");
+  const [apiKey, setApiKey] = useState("");
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [code, setCode] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -22,12 +23,26 @@ export default function DesignWorkspace() {
   const [kicadPcb, setKicadPcb] = useState("");
   const [kicadSch, setKicadSch] = useState("");
   const [netlist, setNetlist] = useState("");
+  const [spice, setSpice] = useState("");
+  const [schematicSvg, setSchematicSvg] = useState("");
+  const [cir, setCir] = useState("");
+  const [lib, setLib] = useState("");
+  const [gerberZip, setGerberZip] = useState("");
+  const [drillZip, setDrillZip] = useState("");
+  const [stepData, setStepData] = useState("");
 
   const handleGenerate = async (prompt: string) => {
     setIsGenerating(true);
     setCompileStatus("idle");
     setCompileError(null);
     setGeneratedFiles([]);
+    setSchematicSvg("");
+    setSpice("");
+    setCir("");
+    setLib("");
+    setGerberZip("");
+    setDrillZip("");
+    setStepData("");
     setRetryUsed(false);
 
     try {
@@ -35,7 +50,7 @@ export default function DesignWorkspace() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, model, existingCode: code }),
+        body: JSON.stringify({ prompt, model, existingCode: code, apiKey }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -54,13 +69,20 @@ export default function DesignWorkspace() {
     setCompileStatus("compiling");
     setCompileError(null);
     setGeneratedFiles([]);
+    setSchematicSvg("");
+    setSpice("");
+    setCir("");
+    setLib("");
+    setGerberZip("");
+    setDrillZip("");
+    setStepData("");
     setRetryUsed(false);
 
     try {
       const res = await fetch("/api/compile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skidlCode: code, model }),
+        body: JSON.stringify({ skidlCode: code, model, apiKey }),
       });
       const data = await res.json();
 
@@ -82,6 +104,33 @@ export default function DesignWorkspace() {
         if (data.netlist) {
           files.push("circuit.net");
           setNetlist(data.netlist);
+        }
+        if (data.spice) {
+          files.push("circuit.spice");
+          setSpice(data.spice);
+        }
+        if (data.cir) {
+          files.push("circuit.cir");
+          setCir(data.cir);
+        }
+        if (data.lib) {
+          files.push("circuit.lib");
+          setLib(data.lib);
+        }
+        if (data.gerberZipBase64) {
+          files.push("gerbers.gbr.zip");
+          setGerberZip(data.gerberZipBase64);
+        }
+        if (data.drillZipBase64) {
+          files.push("drills.drl.zip");
+          setDrillZip(data.drillZipBase64);
+        }
+        if (data.stepBase64) {
+          files.push("circuit.step");
+          setStepData(data.stepBase64);
+        }
+        if (data.schematicSvg) {
+          setSchematicSvg(data.schematicSvg);
         }
         setGeneratedFiles(files);
       } else {
@@ -136,6 +185,8 @@ export default function DesignWorkspace() {
       <Header
         model={model}
         onModelChange={setModel}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
         onExport={handleExport}
         isExporting={isExporting}
         hasCode={!!code}
@@ -169,6 +220,16 @@ export default function DesignWorkspace() {
             status={compileStatus}
             error={compileError}
             generatedFiles={generatedFiles}
+            schematicSvg={schematicSvg}
+            spice={spice}
+            kicadPcb={kicadPcb}
+            netlist={netlist}
+            kicadSch={kicadSch}
+            cir={cir}
+            lib={lib}
+            gerberZip={gerberZip}
+            drillZip={drillZip}
+            stepData={stepData}
             onCompile={handleCompile}
             hasCode={!!code}
             retryUsed={retryUsed}

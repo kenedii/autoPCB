@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatCompletion, ChatMessage } from "@/lib/openai";
 import { FIX_PROMPT } from "@/lib/prompts";
 import { exec } from "child_process";
-import { writeFile, readFile, mkdir, rm } from "fs/promises";
+import { writeFile, readFile, mkdir, rm, readdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { verifySession } from "@/lib/auth";
+import JSZip from "jszip";
 
 interface CompileResult {
   success: boolean;
@@ -19,6 +20,11 @@ interface CompileResult {
   error?: string;
   fixedCode?: string;
   retryUsed?: boolean;
+  gerberZipBase64?: string;
+  drillZipBase64?: string;
+  stepBase64?: string;
+  cir?: string;
+  lib?: string;
 }
 
 async function executeSkidl(
@@ -128,16 +134,17 @@ async function executeSkidl(
 
 async function collectOutputFiles(
   workDir: string
-): Promise<{ kicadPcb?: string; kicadSch?: string; netlist?: string; spice?: string; schematicSvg?: string }> {
-  const result: { kicadPcb?: string; kicadSch?: string; netlist?: string; spice?: string; schematicSvg?: string } = {};
+): Promise<{ kicadPcb?: string; kicadSch?: string; netlist?: string; spice?: string; schematicSvg?: string; gerberZipBase64?: string; drillZipBase64?: string; stepBase64?: string; cir?: string; lib?: string }> {
+  const result: any = {};
 
   // Try to read various output files SKiDL might generate
   const extensions = [
-    { ext: ".kicad_pcb", key: "kicadPcb" as const },
-    { ext: ".kicad_sch", key: "kicadSch" as const },
-    { ext: ".net", key: "netlist" as const },
-    { ext: ".spice", key: "spice" as const },
-    { ext: ".cir", key: "spice" as const },
+    { ext: ".kicad_pcb", key: "kicadPcb" },
+    { ext: ".kicad_sch", key: "kicadSch" },
+    { ext: ".net", key: "netlist" },
+    { ext: ".spice", key: "spice" },
+    { ext: ".cir", key: "cir" },
+    { ext: ".lib", key: "lib" },
   ];
 
   for (const { ext, key } of extensions) {
@@ -174,6 +181,65 @@ async function collectOutputFiles(
       // Skip
     }
   }
+
+  // Generate extras if PCB exists
+  const pcbPath = join(workDir, "circuit.kicad_pcb");
+  if (existsSync(pcbPath)) {
+    try {
+      const gbrDir = join(workDir, "gerbers");
+      await mkdir(gbrDir, { recursive: true });
+      await new Promise<void>((resolve) => {
+        exec(`kicad-cli pcb export gerbers -o "${gbrDir}/" "${pcbPath}"`, { cwd: workDir, timeout: 30000 }, () => resolve());
+      });
+      const gbrFiles = await readdir(gbrDir).catch(() => []);
+      if (gbrFiles.length > 0) {
+        const zip = new JSZip();
+        for (const f of gbrFiles) {
+          zip.file(f, await readFile(join(gbrDir, f)));
+        }
+        const b = await zip.generateAsync({ type: "nodebuffer" });
+        result.gerberZipBase64 = b.toString("base64");
+      }
+    } catch (e) {
+      console.error("[kicad-cli] gerbers error", e);
+    }
+
+    try {
+      const drlDir = join(workDir, "drills");
+      await mkdir(drlDir, { recursive: true });
+      await new Promise<void>((resolve) => {
+        exec(`kicad-cli pcb export drill -o "${drlDir}/" "${pcbPath}"`, { cwd: workDir, timeout: 30000 }, () => resolve());
+      });
+      const drlFiles = await readdir(drlDir).catch(() => []);
+      if (drlFiles.length > 0) {
+        const zip = new JSZip();
+        for (const f of drlFiles) {
+          zip.file(f, await readFile(join(drlDir, f)));
+        }
+        const b = await zip.generateAsync({ type: "nodebuffer" });
+        result.drillZipBase64 = b.toString("base64");
+      }
+    } catch (e) {
+      console.error("[kicad-cli] drill error", e);
+    }
+
+    try {
+      const stepPath = join(workDir, "circuit.step");
+      await new Promise<void>((resolve) => {
+        exec(`kicad-cli pcb export step -o "${stepPath}" "${pcbPath}"`, { cwd: workDir, timeout: 60000 }, () => resolve());
+      });
+      if (existsSync(stepPath)) {
+        const buf = await readFile(stepPath);
+        result.stepBase64 = buf.toString("base64");
+      }
+    } catch (e) {
+      console.error("[kicad-cli] step error", e);
+    }
+  }
+
+  // Populate .cir or .lib if generating spice was successful
+  if (result.spice && !result.cir) result.cir = result.spice;
+  if (result.spice && !result.lib) result.lib = result.spice;
 
   return result;
 }
@@ -228,6 +294,11 @@ export async function POST(request: NextRequest) {
       result.netlist = files.netlist;
       result.spice = files.spice;
       result.schematicSvg = files.schematicSvg;
+      result.gerberZipBase64 = files.gerberZipBase64;
+      result.drillZipBase64 = files.drillZipBase64;
+      result.stepBase64 = files.stepBase64;
+      result.cir = files.cir;
+      result.lib = files.lib;
     } else {
       // RETRY-ON-ERROR: Give the AI one chance to fix the code
       const errorOutput = `${execResult.stdout}\n${execResult.stderr}`.trim();
@@ -285,6 +356,11 @@ export async function POST(request: NextRequest) {
             result.netlist = files.netlist;
             result.spice = files.spice;
             result.schematicSvg = files.schematicSvg;
+            result.gerberZipBase64 = files.gerberZipBase64;
+            result.drillZipBase64 = files.drillZipBase64;
+            result.stepBase64 = files.stepBase64;
+            result.cir = files.cir;
+            result.lib = files.lib;
           } else {
             result.error = `Original error:\n${errorOutput}\n\nRetry error:\n${execResult.stdout}\n${execResult.stderr}`.trim();
           }
