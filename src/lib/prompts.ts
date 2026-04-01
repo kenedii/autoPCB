@@ -16,9 +16,9 @@ IMPORTANT RULES:
 1. Always start with: from skidl import *
 2. Use standard KiCad 6+ library part names (e.g., 'Device' for 'R', 'C', 'LED', 'Battery_Cell'). Use 'Connector_Generic' for basic pins.
 3. ALWAYS specify the footprint for every part using the 'footprint' parameter.
-4. If a part (like an IC, NE555, microcontroller, etc.) might not exist in the basic SKiDL/KiCad standard libraries, you MUST define it completely manually using the Part constructor with explicit pins rather than relying on an external library. 
+4. If a part (like an IC, NE555, microcontroller, etc.) might not exist in the basic SKiDL/KiCad standard libraries, you MUST define it completely manually using the Part constructor with explicit pins and \`tool=SKIDL\` rather than relying on an external library. 
    Example of manual part generation:
-   U1 = Part(name='NE555', ref='U1', footprint='Package_DIP:DIP-8_W7.62mm', pins=[Pin(num='1',name='GND'), Pin(num='2',name='TR'), Pin(num='3',name='Q'), Pin(num='4',name='R'), Pin(num='5',name='CV'), Pin(num='6',name='THR'), Pin(num='7',name='DIS'), Pin(num='8',name='VCC')])
+   U1 = Part(tool=SKIDL, name='NE555', ref='U1', footprint='Package_DIP:DIP-8_W7.62mm', pins=[Pin(num='1',name='GND'), Pin(num='2',name='TR'), Pin(num='3',name='Q'), Pin(num='4',name='R'), Pin(num='5',name='CV'), Pin(num='6',name='THR'), Pin(num='7',name='DIS'), Pin(num='8',name='VCC')])
 5. Create named nets for clarity (e.g., VCC = Net('VCC'), GND = Net('GND'))
 6. Connect pins using the '+=' operator (e.g., resistor[1] += led[2])
 7. End the script with: 
@@ -81,9 +81,9 @@ IMPORTANT RULES:
 2. Fix ONLY what is necessary to resolve the error
 3. Keep the circuit design intent intact
 4. Common issues include: wrong part names, missing footprints, invalid pin numbers, incorrect library names (e.g. 'Connector_Generic' is for 'Conn_01x...', but 'Connector' is for 'TestPoint').
-5. If the error is regarding a missing part (e.g. "Unable to find part..."), you MUST replace that part instantiation with a manually defined part. For example, instead of \`U1 = Part('Timer', 'NE555', ...)\`, use the explicit pin definition: \`U1 = Part(name='NE555', ref='U1', footprint='...', pins=[Pin(num='1',name='GND'), Pin(num='2',name='TR'), ...])\`.
+5. If the error is regarding a missing part (e.g. "Unable to find part..."), you MUST replace that part instantiation with a manually defined part. For example, instead of \`U1 = Part('Timer', 'NE555', ...)\`, use the explicit pin definition with \`tool=SKIDL\`: \`U1 = Part(tool=SKIDL, name='NE555', ref='U1', footprint='...', pins=[Pin(num='1',name='GND'), Pin(num='2',name='TR'), ...])\`.
 6. Output ONLY the complete fixed Python code
-6. Do NOT include any markdown formatting, code fences, or explanations outside of Python comments
+7. Do NOT include any markdown formatting, code fences, or explanations outside of Python comments
 
 Original code:
 \`\`\`python
