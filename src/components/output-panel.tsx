@@ -52,7 +52,15 @@ export default function OutputPanel({
   drillZip,
   stepData,
 }: OutputPanelProps) {
-  const [activeTab, setActiveTab] = React.useState<"files" | "schematic" | "simulator">("files");
+  const [activeTab, setActiveTab] = React.useState<"files" | "schematic">("files");
+
+  React.useEffect(() => {
+    if (status === "success" && schematicSvg) {
+      setActiveTab("schematic");
+    } else if (status === "idle") {
+      setActiveTab("files");
+    }
+  }, [status, schematicSvg]);
 
   const handleDownload = (filename: string, content?: string, isBase64?: boolean) => {
     if (!content) return;
@@ -234,22 +242,9 @@ export default function OutputPanel({
                   padding: "4px 8px"
                 }}
               >
-                Schematic
+                Visual Representation
               </button>
             )}
-            <button
-              onClick={() => setActiveTab("simulator")}
-              style={{
-                background: "none",
-                border: "none",
-                color: activeTab === "simulator" ? "var(--text-primary)" : "var(--text-muted)",
-                fontWeight: activeTab === "simulator" ? 600 : 400,
-                cursor: "pointer",
-                padding: "4px 8px"
-              }}
-            >
-              Simulator/Editor
-            </button>
           </div>
         )}
 
@@ -340,37 +335,6 @@ export default function OutputPanel({
               dangerouslySetInnerHTML={{ __html: schematicSvg }}
             />
           </div>
-        )}
-
-        {activeTab === "simulator" && (
-           <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-             {spice && (
-               <button
-                 onClick={() => navigator.clipboard.writeText(spice)}
-                 style={{
-                   alignSelf: "flex-end",
-                   marginBottom: "8px",
-                   padding: "4px 8px",
-                   fontSize: "12px",
-                   background: "var(--bg-tertiary)",
-                   border: "1px solid var(--border-color)",
-                   borderRadius: "var(--radius-sm)",
-                   cursor: "pointer",
-                   color: "var(--text-primary)"
-                 }}
-               >
-                 📋 Copy SPICE for Import
-               </button>
-             )}
-             <iframe 
-               src="https://www.falstad.com/circuit/circuitjs.html?startCircuit=blank.txt"
-               style={{ width: "100%", height: "100%", minHeight: "400px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)" }}
-               title="Circuit Simulator and Editor"
-             />
-             <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", textAlign: "center" }}>
-               Built-in circuit simulator. To test your code: <b>1. Copy SPICE</b> above, then <b>2. File &gt; Import</b> and paste the code.
-             </div>
-           </div>
         )}
 
         {/* Idle state */}

@@ -97,56 +97,30 @@ export default function CodePanel({
           />
         )}
 
-        {code ? (
-          <MonacoEditor
-            height="100%"
-            language="python"
-            theme="vs-dark"
-            value={code}
-            onChange={(value) => onCodeChange(value || "")}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineHeight: 20,
-              padding: { top: 16, bottom: 16 },
-              scrollBeyondLastLine: false,
-              wordWrap: "on",
-              contextmenu: false,
-              automaticLayout: true,
-              fontFamily: "'Geist Mono', 'Fira Code', 'Consolas', monospace",
-              fontLigatures: true,
-              renderLineHighlight: "gutter",
-              scrollbar: {
-                verticalScrollbarSize: 6,
-                horizontalScrollbarSize: 6,
-              },
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text-muted)",
-              textAlign: "center",
-              gap: "12px",
-              padding: "24px",
-            }}
-          >
-            <Code2 size={40} style={{ opacity: 0.2 }} />
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-secondary)" }}>
-                No code generated yet
-              </p>
-              <p style={{ fontSize: "12px", marginTop: "4px" }}>
-                Use the prompt panel to describe your circuit
-              </p>
-            </div>
-          </div>
-        )}
+        <MonacoEditor
+          height="100%"
+          language="python"
+          theme="vs-dark"
+          value={code}
+          onChange={(value) => onCodeChange(value || "")}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 13,
+            lineHeight: 20,
+            padding: { top: 16, bottom: 16 },
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            contextmenu: false,
+            automaticLayout: true,
+            fontFamily: "'Geist Mono', 'Fira Code', 'Consolas', monospace",
+            fontLigatures: true,
+            renderLineHighlight: "gutter",
+            scrollbar: {
+              verticalScrollbarSize: 6,
+              horizontalScrollbarSize: 6,
+            },
+          }}
+        />
       </div>
     </div>
   );
