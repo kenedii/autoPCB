@@ -89,11 +89,11 @@ async function executeSkidl(
       // Find template
       const versions = ["9.0", "8.0", "7.0", "6.0"];
       for (const v of versions) {
-        const tpl = \`C:\\\\Program Files\\\\KiCad\\\\\${v}\\\\share\\\\kicad\\\\template\\\\fp-lib-table\`;
+        const tpl = `C:\\Program Files\\KiCad\\${v}\\share\\kicad\\template\\fp-lib-table`;
         if (existsSync(tpl)) {
           await writeFile(join(workDir, "fp-lib-table"), await readFile(tpl, "utf-8"));
         }
-        const symTpl = \`C:\\\\Program Files\\\\KiCad\\\\\${v}\\\\share\\\\kicad\\\\template\\\\sym-lib-table\`;
+        const symTpl = `C:\\Program Files\\KiCad\\${v}\\share\\kicad\\template\\sym-lib-table`;
         if (existsSync(symTpl)) {
           await writeFile(join(workDir, "sym-lib-table"), await readFile(symTpl, "utf-8"));
           break;
