@@ -11,12 +11,16 @@ import {
 interface HeaderProps {
   model: string;
   onModelChange: (model: string) => void;
+  apiKey: string;
+  onApiKeyChange: (key: string) => void;
   onExport: () => void;
   isExporting: boolean;
   hasCode: boolean;
 }
 
 const MODELS = [
+  { value: "deepseek-chat", label: "DeepSeek Chat" },
+  { value: "deepseek-reasoner", label: "DeepSeek Reasoner" },
   { value: "gpt-4o", label: "GPT-4o" },
   { value: "gpt-4o-mini", label: "GPT-4o Mini" },
   { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
@@ -26,6 +30,8 @@ const MODELS = [
 export default function Header({
   model,
   onModelChange,
+  apiKey,
+  onApiKeyChange,
   onExport,
   isExporting,
   hasCode,
@@ -36,54 +42,27 @@ export default function Header({
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
         padding: "12px 24px",
         borderBottom: "1px solid var(--border-primary)",
         borderRadius: 0,
         zIndex: 100,
       }}
     >
-      {/* Logo / Brand */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "10px",
-            background: "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Cpu size={20} color="white" />
+      {/* Controls - Pushed to the right */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginLeft: "auto" }}>
+        
+        {/* API Key Input */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <input
+            type="password"
+            placeholder="Custom API Key (Optional)"
+            className="input-text"
+            value={apiKey}
+            onChange={(e) => onApiKeyChange(e.target.value)}
+            style={{ width: "200px", padding: "6px 12px", fontSize: "13px", background: "var(--bg-tertiary)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)" }}
+          />
         </div>
-        <div>
-          <h1
-            style={{
-              fontSize: "18px",
-              fontWeight: 700,
-              margin: 0,
-              lineHeight: 1.2,
-            }}
-          >
-            <span className="gradient-text">AutoPCB</span>
-          </h1>
-          <p
-            style={{
-              fontSize: "11px",
-              color: "var(--text-muted)",
-              margin: 0,
-              lineHeight: 1.2,
-            }}
-          >
-            AI-Powered PCB Designer
-          </p>
-        </div>
-      </div>
 
-      {/* Controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         {/* Model Selector */}
         <div className="select-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <Zap size={14} style={{ color: "var(--accent-warning)" }} />

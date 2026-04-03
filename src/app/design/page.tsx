@@ -7,7 +7,7 @@ import CodePanel from "@/components/code-panel";
 import OutputPanel, { CompileStatus } from "@/components/output-panel";
 
 export default function DesignWorkspace() {
-  const [model, setModel] = useState("gpt-4o");
+  const [model, setModel] = useState("deepseek-chat");
   const [apiKey, setApiKey] = useState("");
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [code, setCode] = useState("from skidl import *");

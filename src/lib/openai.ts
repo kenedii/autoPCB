@@ -18,9 +18,28 @@ export interface ChatMessage {
 
 export async function chatCompletion(
   messages: ChatMessage[],
-  model: string = "gpt-4o"
+  model: string = "gpt-4o",
+  customApiKey?: string
 ): Promise<string> {
-  const client = getOpenAIClient();
+  let apiKey = customApiKey;
+  let baseURL: string | undefined = undefined;
+
+  if (model.startsWith("deepseek")) {
+    apiKey = apiKey || process.env.DEEPSEEK_API_KEY;
+    baseURL = "https://api.deepseek.com";
+  } else {
+    apiKey = apiKey || process.env.OPENAI_API_KEY;
+  }
+
+  if (!apiKey) {
+    throw new Error(`API key is missing for model ${model}`);
+  }
+
+  const client = new OpenAI({
+    apiKey,
+    baseURL,
+  });
+
   const response = await client.chat.completions.create({
     model,
     messages,
