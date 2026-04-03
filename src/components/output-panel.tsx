@@ -14,12 +14,15 @@ import {
   Network,
   FileText,
   Cpu,
+  List,
+  FileImage,
 } from "lucide-react";
 import NetlistViewer from "@/components/netlist-viewer";
+import ConnectionsViewer from "@/components/connections-viewer";
 
 export type CompileStatus = "idle" | "compiling" | "success" | "error" | "retrying";
 
-type ActiveTab = "files" | "netlist" | "schematic" | "spice";
+type ActiveTab = "files" | "netlist" | "connections" | "schematic" | "spice";
 
 interface OutputPanelProps {
   status: CompileStatus;
@@ -275,7 +278,8 @@ export default function OutputPanel({
             >
               <TabBtn tab="files" label="Files" icon={<FileCode2 size={12} />} available={generatedFiles.length > 0} />
               <TabBtn tab="netlist" label="Netlist Graph" icon={<Network size={12} />} available={!!netlist} />
-              <TabBtn tab="schematic" label="Schematic" icon={<Cpu size={12} />} available={!!schematicSvg} />
+              <TabBtn tab="connections" label="Circuit Table" icon={<List size={12} />} available={!!netlist} />
+              <TabBtn tab="schematic" label="Schematic" icon={<FileImage size={12} />} available={!!schematicSvg} />
               <TabBtn tab="spice" label="SPICE" icon={<FileText size={12} />} available={!!(spice || cir)} />
             </div>
 
@@ -355,6 +359,13 @@ export default function OutputPanel({
             {activeTab === "netlist" && netlist && (
               <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
                 <NetlistViewer netlistXml={netlist} />
+              </div>
+            )}
+
+            {/* CONNECTIONS TAB */}
+            {activeTab === "connections" && netlist && (
+              <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <ConnectionsViewer netlistXml={netlist} />
               </div>
             )}
 

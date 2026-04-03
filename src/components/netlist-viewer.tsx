@@ -2,6 +2,18 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
+const IMAGE_MAP: Record<string, string> = {
+  R: "/images/components/3d_resistor_component_1775187510307.png",
+  C: "/images/components/3d_capacitor_component_1775187524858.png",
+  U: "/images/components/3d_ic_component_1775187554153.png",
+};
+
+function getIconForRef(ref: string) {
+  if (ref.startsWith("R")) return IMAGE_MAP.R;
+  if (ref.startsWith("C")) return IMAGE_MAP.C;
+  return IMAGE_MAP.U; // Default to IC for others
+}
+
 interface NetPin {
   ref: string;
   pin: string;
@@ -258,9 +270,14 @@ export default function NetlistViewer({ netlistXml }: NetlistViewerProps) {
                 stroke="rgba(99,130,180,0.5)"
                 strokeWidth={1.5}
               />
+              {/* 3D Icon Image */}
+              <image
+                href={getIconForRef(comp.ref)}
+                x={6} y={15} width={30} height={30}
+              />
               {/* Ref label */}
               <text
-                x={COMP_W / 2} y={22}
+                x={COMP_W / 2 + 14} y={22}
                 textAnchor="middle"
                 fill="#93c5fd"
                 fontSize={11}
@@ -271,7 +288,7 @@ export default function NetlistViewer({ netlistXml }: NetlistViewerProps) {
               </text>
               {/* Value label */}
               <text
-                x={COMP_W / 2} y={38}
+                x={COMP_W / 2 + 14} y={38}
                 textAnchor="middle"
                 fill="#9ca3af"
                 fontSize={9}
@@ -281,7 +298,7 @@ export default function NetlistViewer({ netlistXml }: NetlistViewerProps) {
               </text>
               {/* Footprint label */}
               <text
-                x={COMP_W / 2} y={52}
+                x={COMP_W / 2 + 14} y={52}
                 textAnchor="middle"
                 fill="#6b7280"
                 fontSize={8}
@@ -297,10 +314,12 @@ export default function NetlistViewer({ netlistXml }: NetlistViewerProps) {
                 onMouseEnter={(ev) => {
                   const rect = svgRef.current?.getBoundingClientRect();
                   if (rect) {
+                    const connected = graph.nets.filter(n => n.pins.some(p => p.ref === comp.ref));
+                    const pinInfo = connected.map(n => `- Pin ${n.pins.find(p=>p.ref===comp.ref)?.pin}: ${n.name}`).join("\n");
                     setTooltip({
                       x: ev.clientX - rect.left,
                       y: ev.clientY - rect.top,
-                      text: `${comp.ref}: ${comp.value}\n${comp.footprint}`
+                      text: `${comp.ref}: ${comp.value}\n${comp.footprint}\nConnections:\n${pinInfo || "None"}`
                     });
                   }
                 }}

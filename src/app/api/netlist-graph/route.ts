@@ -25,45 +25,36 @@ interface NetlistGraph {
 }
 
 /**
- * Parses a KiCad .net XML string into a JSON graph of components and nets.
- * The .net format looks like:
- * <export>
- *   <components>
- *     <comp ref="R1"><value>330</value><footprint>...</footprint></comp>
- *   </components>
- *   <nets>
- *     <net code="1" name="VCC">
- *       <node ref="R1" pin="1"/>
- *     </net>
- *   </nets>
- * </export>
+ * Parses a KiCad .net S-expression string into a JSON graph of components and nets.
  */
 function parseNetlistXml(xml: string): NetlistGraph {
   const components: ComponentNode[] = [];
   const nets: NetEdge[] = [];
 
-  // Parse components
-  const compMatches = xml.matchAll(/<comp\s+ref="([^"]+)"[^>]*>([\s\S]*?)<\/comp>/g);
+  // Parse components from S-expression
+  // (comp (ref "R1") (value "330") (footprint "...") ...)
+  const compMatches = xml.matchAll(/\(comp\s+\(ref\s+"([^"]+)"\)\s+\(value\s+"([^"]*)"\)(?:[\s\S]*?\(footprint\s+"([^"]*)"\))?/g);
   for (const m of compMatches) {
     const ref = m[1];
-    const body = m[2];
-    const valueMatch = body.match(/<value>([^<]*)<\/value>/);
-    const footprintMatch = body.match(/<footprint>([^<]*)<\/footprint>/);
+    const value = m[2];
+    const footprint = m[3] || "";
     components.push({
       ref,
-      value: valueMatch?.[1] || "",
-      footprint: footprintMatch?.[1] || "",
+      value,
+      footprint,
       pins: [],
     });
   }
 
-  // Parse nets
-  const netMatches = xml.matchAll(/<net\s+code="([^"]+)"\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/net>/g);
+  // Parse nets from S-expression
+  // (net (code 1) (name "VCC") (node (ref "R1") (pin "1")) ...)
+  const netMatches = xml.matchAll(/\(net\s+\(code\s+(\d+)\)\s+\(name\s+"([^"]+)"\)([\s\S]*?)(?=\(net\s+\(code|\)$)/g);
   for (const m of netMatches) {
     const code = m[1];
     const name = m[2];
     const body = m[3];
-    const pinMatches = [...body.matchAll(/<node\s+ref="([^"]+)"\s+pin="([^"]+)"[^/]*/g)];
+    
+    const pinMatches = [...body.matchAll(/\(node\s+\(ref\s+"([^"]+)"\)\s+\(pin\s+"([^"]+)"\)/g)];
     const pins: NetPin[] = pinMatches.map((pm) => ({ ref: pm[1], pin: pm[2] }));
 
     // Associate pins back to components
