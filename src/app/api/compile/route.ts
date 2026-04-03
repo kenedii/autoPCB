@@ -10,6 +10,51 @@ import { randomUUID } from "crypto";
 import { verifySession } from "@/lib/auth";
 import JSZip from "jszip";
 
+const MONKEY_PATCH = `
+import skidl
+from skidl.part import Part as OriginalPart
+from skidl.pin import Pin
+
+class AutoPart(OriginalPart):
+    def __init__(self, *args, **kwargs):
+        try:
+            super().__init__(*args, **kwargs)
+        except Exception:
+            name = kwargs.get('name', 'Unknown')
+            if len(args) > 1:
+                name = args[1]
+            elif len(args) == 1:
+                name = args[0]
+            
+            kwargs_new = {'tool': 'SKIDL', 'name': name}
+            if 'footprint' in kwargs: kwargs_new['footprint'] = kwargs['footprint']
+            if 'value' in kwargs: kwargs_new['value'] = kwargs['value']
+            if 'ref' in kwargs: kwargs_new['ref'] = kwargs['ref']
+            if 'dest' in kwargs: kwargs_new['dest'] = kwargs['dest']
+            
+            super().__init__(**kwargs_new)
+
+    def __getitem__(self, key):
+        try:
+            return super().__getitem__(key)
+        except Exception:
+            p = Pin(num=str(key), name=str(key))
+            self += p
+            return super().__getitem__(key)
+
+    def __getattr__(self, key):
+        try:
+            return super().__getattr__(key)
+        except Exception:
+            if str(key).startswith('_'): raise
+            p = Pin(num=str(key), name=str(key))
+            self += p
+            return super().__getattr__(key)
+
+skidl.Part = AutoPart
+Part = AutoPart
+`;
+
 /**
  * Pre-execution sanitizer: fixes common AI-generated SKiDL mistakes before running.
  *
@@ -19,6 +64,8 @@ import JSZip from "jszip";
  * 2. Ensures set_default_tool(KICAD6) is present.
  *
  * 3. Appends netlist/spice/pcb/schematic generators if generate_netlist() is present.
+ *
+ * 4. Injects MONKEY_PATCH to prevent "Unable to find part" crashes.
  */
 function sanitizeSkidlCode(code: string): string {
   let result = code;
@@ -33,12 +80,15 @@ function sanitizeSkidlCode(code: string): string {
     }
   );
 
-  // Inject KICAD6 default if missing
-  if (!result.includes("set_default_tool(KICAD6)")) {
+  // Inject KICAD6 default if missing and add Monkey Patch
+  if (result.includes("from skidl import *")) {
     result = result.replace(
       "from skidl import *",
-      "from skidl import *\nset_default_tool(KICAD6)"
+      "from skidl import *\\n" + (!result.includes("set_default_tool(KICAD6)") ? "set_default_tool(KICAD6)\\n" : "") + MONKEY_PATCH
     );
+  } else {
+    // If somehow missing entirely
+    result = "from skidl import *\\nset_default_tool(KICAD6)\\n" + MONKEY_PATCH + "\\n" + result;
   }
 
   // Append output generators after generate_netlist()
