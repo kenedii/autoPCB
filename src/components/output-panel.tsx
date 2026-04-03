@@ -11,9 +11,15 @@ import {
   Terminal,
   PlayCircle,
   Download,
+  Network,
+  FileText,
+  Cpu,
 } from "lucide-react";
+import NetlistViewer from "@/components/netlist-viewer";
 
 export type CompileStatus = "idle" | "compiling" | "success" | "error" | "retrying";
+
+type ActiveTab = "files" | "netlist" | "schematic" | "spice";
 
 interface OutputPanelProps {
   status: CompileStatus;
@@ -52,15 +58,18 @@ export default function OutputPanel({
   drillZip,
   stepData,
 }: OutputPanelProps) {
-  const [activeTab, setActiveTab] = React.useState<"files" | "schematic">("files");
+  const [activeTab, setActiveTab] = React.useState<ActiveTab>("files");
 
+  // Auto-select the best tab after a successful compile
   React.useEffect(() => {
-    if (status === "success" && schematicSvg) {
-      setActiveTab("schematic");
+    if (status === "success") {
+      if (netlist) setActiveTab("netlist");
+      else if (schematicSvg) setActiveTab("schematic");
+      else setActiveTab("files");
     } else if (status === "idle") {
       setActiveTab("files");
     }
-  }, [status, schematicSvg]);
+  }, [status, netlist, schematicSvg]);
 
   const handleDownload = (filename: string, content?: string, isBase64?: boolean) => {
     if (!content) return;
@@ -127,6 +136,44 @@ export default function OutputPanel({
     }
   };
 
+  const hasOutput = generatedFiles.length > 0 || schematicSvg || netlist || spice || cir || status === "success";
+
+  // Tab button helper
+  const TabBtn = ({
+    tab,
+    label,
+    icon,
+    available,
+  }: {
+    tab: ActiveTab;
+    label: string;
+    icon: React.ReactNode;
+    available: boolean;
+  }) =>
+    available ? (
+      <button
+        onClick={() => setActiveTab(tab)}
+        style={{
+          background: "none",
+          border: "none",
+          borderBottom: activeTab === tab ? "2px solid var(--accent-secondary)" : "2px solid transparent",
+          color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
+          fontWeight: activeTab === tab ? 600 : 400,
+          cursor: "pointer",
+          padding: "6px 10px",
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          fontSize: 12,
+          marginBottom: -1,
+          transition: "color 0.15s",
+        }}
+      >
+        {icon}
+        {label}
+      </button>
+    ) : null;
+
   return (
     <div
       className="panel"
@@ -150,6 +197,7 @@ export default function OutputPanel({
           display: "flex",
           flexDirection: "column",
           gap: "16px",
+          overflow: "hidden",
         }}
       >
         {/* Compile button */}
@@ -214,131 +262,150 @@ export default function OutputPanel({
           </div>
         )}
 
-        {/* Tabs for files / schematic / simulator */}
-        {(generatedFiles.length > 0 || schematicSvg || status === "success") && (
-          <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--border-color)", paddingBottom: "8px", marginTop: "8px" }}>
-            <button
-              onClick={() => setActiveTab("files")}
-              style={{
-                background: "none",
-                border: "none",
-                color: activeTab === "files" ? "var(--text-primary)" : "var(--text-muted)",
-                fontWeight: activeTab === "files" ? 600 : 400,
-                cursor: "pointer",
-                padding: "4px 8px"
-              }}
-            >
-              Files
-            </button>
-            {schematicSvg && (
-              <button
-                onClick={() => setActiveTab("schematic")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: activeTab === "schematic" ? "var(--text-primary)" : "var(--text-muted)",
-                  fontWeight: activeTab === "schematic" ? 600 : 400,
-                  cursor: "pointer",
-                  padding: "4px 8px"
-                }}
-              >
-                Visual Representation
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Tab Contents */}
-        {activeTab === "files" && generatedFiles.length > 0 && (
-          <div className="animate-fade-in">
+        {/* ── TABS ── */}
+        {hasOutput && (
+          <>
             <div
               style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--accent-success)",
-                marginBottom: "10px",
                 display: "flex",
-                alignItems: "center",
-                gap: "6px",
+                gap: "2px",
+                borderBottom: "1px solid var(--border-color)",
+                flexShrink: 0,
               }}
             >
-              <CheckCircle2 size={14} />
-              Generated Files
+              <TabBtn tab="files" label="Files" icon={<FileCode2 size={12} />} available={generatedFiles.length > 0} />
+              <TabBtn tab="netlist" label="Netlist Graph" icon={<Network size={12} />} available={!!netlist} />
+              <TabBtn tab="schematic" label="Schematic" icon={<Cpu size={12} />} available={!!schematicSvg} />
+              <TabBtn tab="spice" label="SPICE" icon={<FileText size={12} />} available={!!(spice || cir)} />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {generatedFiles.map((file, i) => {
-                let content = "";
-                let isBase64 = false;
-                if (file.endsWith(".kicad_pcb")) content = kicadPcb || "";
-                else if (file.endsWith(".kicad_sch")) content = kicadSch || "";
-                else if (file.endsWith(".net")) content = netlist || "";
-                else if (file.endsWith(".spice")) content = spice || "";
-                else if (file.endsWith(".cir")) content = cir || "";
-                else if (file.endsWith(".lib")) content = lib || "";
-                else if (file.endsWith(".gbr.zip")) { content = gerberZip || ""; isBase64 = true; }
-                else if (file.endsWith(".drl.zip")) { content = drillZip || ""; isBase64 = true; }
-                else if (file.endsWith(".step")) { content = stepData || ""; isBase64 = true; }
 
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      padding: "8px 12px",
-                      background: "var(--bg-tertiary)",
-                      borderRadius: "var(--radius-sm)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "8px",
-                      fontSize: "13px",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <FileCode2 size={14} style={{ color: "var(--accent-secondary)" }} />
-                      {file}
-                    </div>
-                    <button
-                      onClick={() => handleDownload(file, content, isBase64)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "var(--accent-secondary)",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px"
-                      }}
-                      title="Download file"
-                    >
-                      <Download size={14} /> Download
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            {/* FILES TAB */}
+            {activeTab === "files" && generatedFiles.length > 0 && (
+              <div className="animate-fade-in" style={{ overflowY: "auto" }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--accent-success)",
+                    marginBottom: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <CheckCircle2 size={14} />
+                  Generated Files
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {generatedFiles.map((file, i) => {
+                    let content = "";
+                    let isBase64 = false;
+                    if (file.endsWith(".kicad_pcb")) content = kicadPcb || "";
+                    else if (file.endsWith(".kicad_sch")) content = kicadSch || "";
+                    else if (file.endsWith(".net")) content = netlist || "";
+                    else if (file.endsWith(".spice")) content = spice || "";
+                    else if (file.endsWith(".cir")) content = cir || "";
+                    else if (file.endsWith(".lib")) content = lib || "";
+                    else if (file.endsWith(".gbr.zip")) { content = gerberZip || ""; isBase64 = true; }
+                    else if (file.endsWith(".drl.zip")) { content = drillZip || ""; isBase64 = true; }
+                    else if (file.endsWith(".step")) { content = stepData || ""; isBase64 = true; }
 
-        {activeTab === "schematic" && schematicSvg && (
-          <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div
-              style={{
-                flex: 1,
-                background: "white", 
-                borderRadius: "var(--radius-sm)",
-                overflow: "auto",
-                padding: "8px",
-                border: "1px solid var(--border-color)",
-                minHeight: "300px" // give it some room
-              }}
-              dangerouslySetInnerHTML={{ __html: schematicSvg }}
-            />
-          </div>
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          padding: "8px 12px",
+                          background: "var(--bg-tertiary)",
+                          borderRadius: "var(--radius-sm)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "8px",
+                          fontSize: "13px",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <FileCode2 size={14} style={{ color: "var(--accent-secondary)" }} />
+                          {file}
+                        </div>
+                        <button
+                          onClick={() => handleDownload(file, content, isBase64)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--accent-secondary)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                          title="Download file"
+                        >
+                          <Download size={14} /> Download
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* NETLIST GRAPH TAB */}
+            {activeTab === "netlist" && netlist && (
+              <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <NetlistViewer netlistXml={netlist} />
+              </div>
+            )}
+
+            {/* SCHEMATIC SVG TAB */}
+            {activeTab === "schematic" && schematicSvg && (
+              <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    background: "white",
+                    borderRadius: "var(--radius-sm)",
+                    overflow: "auto",
+                    padding: "8px",
+                    border: "1px solid var(--border-color)",
+                    minHeight: "300px",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: schematicSvg }}
+                />
+              </div>
+            )}
+
+            {/* SPICE TAB */}
+            {activeTab === "spice" && (spice || cir) && (
+              <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <pre
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    background: "var(--bg-tertiary)",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border-color)",
+                    padding: "12px",
+                    color: "var(--text-secondary)",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-all",
+                    margin: 0,
+                    minHeight: 200,
+                    maxHeight: 400,
+                  }}
+                >
+                  {spice || cir}
+                </pre>
+              </div>
+            )}
+          </>
         )}
 
         {/* Idle state */}
-        {status === "idle" && !error && generatedFiles.length === 0 && (
+        {status === "idle" && !error && !hasOutput && (
           <div
             style={{
               flex: 1,

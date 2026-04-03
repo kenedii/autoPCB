@@ -10,6 +10,48 @@ import { randomUUID } from "crypto";
 import { verifySession } from "@/lib/auth";
 import JSZip from "jszip";
 
+/**
+ * Pre-execution sanitizer: fixes common AI-generated SKiDL mistakes before running.
+ *
+ * 1. Rewrites inline Net('X') += ... to use a named variable, which prevents:
+ *    SyntaxError: 'function call' is an illegal expression for augmented assignment
+ *
+ * 2. Ensures set_default_tool(KICAD6) is present.
+ *
+ * 3. Appends netlist/spice/pcb/schematic generators if generate_netlist() is present.
+ */
+function sanitizeSkidlCode(code: string): string {
+  let result = code;
+
+  // Fix: Net('X') += something  →  _net_X = Net('X')\n_net_X += something
+  // Handles both single and double quotes, and variations with spaces
+  result = result.replace(
+    /^([ \t]*)Net\((['"])(.*?)\2\)\s*\+=/gm,
+    (match, indent, quote, netName) => {
+      const varName = `_net_${netName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+      return `${indent}${varName} = Net(${quote}${netName}${quote})\n${indent}${varName} +=`;
+    }
+  );
+
+  // Inject KICAD6 default if missing
+  if (!result.includes("set_default_tool(KICAD6)")) {
+    result = result.replace(
+      "from skidl import *",
+      "from skidl import *\nset_default_tool(KICAD6)"
+    );
+  }
+
+  // Append output generators after generate_netlist()
+  if (result.includes("generate_netlist()") && !result.includes("generate_netlist(file_=")) {
+    result = result.replace(
+      /generate_netlist\(\)/g,
+      `generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass`
+    );
+  }
+
+  return result;
+}
+
 interface CompileResult {
   success: boolean;
   kicadPcb?: string;
@@ -265,22 +307,8 @@ export async function POST(request: NextRequest) {
     // Create temp working directory
     await mkdir(workDir, { recursive: true });
 
-    let codeToRun = skidlCode;
-    // ensure generator works with Debian KiCad 6
-    if (!codeToRun.includes("set_default_tool(KICAD6)")) {
-        codeToRun = codeToRun.replace(
-            "from skidl import *",
-            "from skidl import *\nset_default_tool(KICAD6)"
-        );
-    }
-
-    // ensure generate_spice is appended if generate_netlist is present so we always get spice output for simulator
-    if (codeToRun.includes("generate_netlist()")) {
-        codeToRun = codeToRun.replace(
-            "generate_netlist()",
-            "generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass\n"
-        );
-    }
+    // Sanitize + augment the code (fix inline Net() assignment syntax, inject KICAD6, add generators)
+    const codeToRun = sanitizeSkidlCode(skidlCode);
 
     // First execution attempt
     let execResult = await executeSkidl(codeToRun, workDir);
@@ -324,24 +352,12 @@ export async function POST(request: NextRequest) {
             .replace(/^```\n?/gm, "")
             .trim();
 
-          // Second execution attempt with fixed code
+          // Second execution attempt with fixed + sanitized code
           // Clean the work directory for retry
           await rm(workDir, { recursive: true, force: true });
           await mkdir(workDir, { recursive: true });
 
-          let retryCodeToRun = cleanFixed;
-          if (!retryCodeToRun.includes("set_default_tool(KICAD6)")) {
-              retryCodeToRun = retryCodeToRun.replace(
-                  "from skidl import *",
-                  "from skidl import *\nset_default_tool(KICAD6)"
-              );
-          }
-          if (retryCodeToRun.includes("generate_netlist()")) {
-              retryCodeToRun = retryCodeToRun.replace(
-                  "generate_netlist()",
-                  "generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass\n"
-              );
-          }
+          const retryCodeToRun = sanitizeSkidlCode(cleanFixed);
 
           execResult = await executeSkidl(retryCodeToRun, workDir);
           result.retryUsed = true;
