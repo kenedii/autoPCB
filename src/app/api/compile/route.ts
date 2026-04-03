@@ -26,7 +26,7 @@ class AutoPart(OriginalPart):
             elif len(args) == 1:
                 name = args[0]
             
-            kwargs_new = {'tool': 'SKIDL', 'name': name}
+            kwargs_new = {'tool': kwargs.get('tool', 'SKIDL'), 'name': name, 'pins': []}
             if 'footprint' in kwargs: kwargs_new['footprint'] = kwargs['footprint']
             if 'value' in kwargs: kwargs_new['value'] = kwargs['value']
             if 'ref' in kwargs: kwargs_new['ref'] = kwargs['ref']
@@ -45,9 +45,11 @@ class AutoPart(OriginalPart):
     def __getattr__(self, key):
         try:
             return super().__getattr__(key)
-        except Exception:
-            if str(key).startswith('_'): raise
-            p = Pin(num=str(key), name=str(key))
+        except Exception as e:
+            k = str(key)
+            if k.startswith('_') or k in ['ref_prefix', 'circuit', 'logger', 'name', 'ref', 'value', 'footprint', 'hierarchy', 'aliases', 'keywords', 'description', 'datasheet', 'search_text', 'do_erc']:
+                raise e
+            p = Pin(num=k, name=k)
             self += p
             return super().__getattr__(key)
 
