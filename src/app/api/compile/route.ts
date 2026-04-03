@@ -84,11 +84,11 @@ function sanitizeSkidlCode(code: string): string {
   if (result.includes("from skidl import *")) {
     result = result.replace(
       "from skidl import *",
-      "from skidl import *\\n" + (!result.includes("set_default_tool(KICAD6)") ? "set_default_tool(KICAD6)\\n" : "") + MONKEY_PATCH
+      "from skidl import *\n" + (!result.includes("set_default_tool(KICAD6)") ? "set_default_tool(KICAD6)\n" : "") + MONKEY_PATCH
     );
   } else {
     // If somehow missing entirely
-    result = "from skidl import *\\nset_default_tool(KICAD6)\\n" + MONKEY_PATCH + "\\n" + result;
+    result = "from skidl import *\nset_default_tool(KICAD6)\n" + MONKEY_PATCH + "\n" + result;
   }
 
   // Append output generators after generate_netlist()
