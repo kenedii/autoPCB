@@ -26,7 +26,7 @@ class AutoPart(OriginalPart):
             elif len(args) == 1:
                 name = args[0]
             
-            kwargs_new = {'tool': kwargs.get('tool', 'SKIDL'), 'name': name, 'pins': []}
+            kwargs_new = {'tool': kwargs.get('tool', skidl.SKIDL), 'name': name, 'pins': []}
             if 'footprint' in kwargs: kwargs_new['footprint'] = kwargs['footprint']
             if 'value' in kwargs: kwargs_new['value'] = kwargs['value']
             if 'ref' in kwargs: kwargs_new['ref'] = kwargs['ref']
@@ -36,7 +36,12 @@ class AutoPart(OriginalPart):
 
     def __getitem__(self, key):
         try:
-            return super().__getitem__(key)
+            res = super().__getitem__(key)
+            if res is None or (isinstance(res, (list, tuple)) and len(res) == 0):
+                p = Pin(num=str(key), name=str(key))
+                self += p
+                return super().__getitem__(key)
+            return res
         except Exception:
             p = Pin(num=str(key), name=str(key))
             self += p
@@ -44,7 +49,13 @@ class AutoPart(OriginalPart):
 
     def __getattr__(self, key):
         try:
-            return super().__getattr__(key)
+            res = super().__getattr__(key)
+            if res is None or (isinstance(res, (list, tuple)) and len(res) == 0):
+                k = str(key)
+                p = Pin(num=k, name=k)
+                self += p
+                return super().__getattr__(key)
+            return res
         except Exception as e:
             k = str(key)
             if k.startswith('_') or k in ['ref_prefix', 'circuit', 'logger', 'name', 'ref', 'value', 'footprint', 'hierarchy', 'aliases', 'keywords', 'description', 'datasheet', 'search_text', 'do_erc']:
