@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
+import JSZip from "jszip";
 import Header from "@/components/header";
 import PromptPanel from "@/components/prompt-panel";
 import CodePanel from "@/components/code-panel";
@@ -59,6 +60,7 @@ export default function DesignWorkspace() {
   const [generatedFiles, setGeneratedFiles] = useState<string[]>([]);
   const [retryUsed, setRetryUsed] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
 
   // Store compilation output for export
   const [kicadPcb, setKicadPcb] = useState("");
@@ -303,6 +305,7 @@ export default function DesignWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           skidlCode: code,
+          promptHistory,
           kicadPcb,
           kicadSch,
           netlist,
@@ -332,6 +335,94 @@ export default function DesignWorkspace() {
       alert("Failed to communicate with export server.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleLoadSession = async (file: File) => {
+    setIsLoadingSession(true);
+    setCompileError(null);
+
+    try {
+      const zip = await JSZip.loadAsync(file);
+
+      const readText = async (paths: string[]) => {
+        for (const path of paths) {
+          const entry = zip.file(path);
+          if (entry) {
+            return entry.async("string");
+          }
+        }
+        return "";
+      };
+
+      const readBase64 = async (paths: string[]) => {
+        for (const path of paths) {
+          const entry = zip.file(path);
+          if (entry) {
+            return entry.async("base64");
+          }
+        }
+        return "";
+      };
+
+      const loadedChat = await readText(["session/chat_history.txt", "chat_history.txt"]);
+      const loadedCode = await readText(["session/skidl_code.py", "circuit.py"]);
+
+      const loadedKicadPcb = await readText(["compiled/circuit.kicad_pcb", "circuit.kicad_pcb"]);
+      const loadedKicadSch = await readText(["compiled/circuit.kicad_sch", "circuit.kicad_sch"]);
+      const loadedNetlist = await readText(["compiled/circuit.net", "circuit.net"]);
+      const loadedSpice = await readText(["compiled/circuit.spice", "circuit.spice"]);
+      const loadedCir = await readText(["compiled/circuit.cir", "circuit.cir"]);
+      const loadedLib = await readText(["compiled/circuit.lib", "circuit.lib"]);
+      const loadedSchematic = await readText(["compiled/circuit.svg", "circuit.svg"]);
+      const loadedGerber = await readBase64(["compiled/gerbers.gbr.zip", "gerbers.gbr.zip"]);
+      const loadedDrill = await readBase64(["compiled/drills.drl.zip", "drills.drl.zip"]);
+      const loadedStep = await readBase64(["compiled/circuit.step", "circuit.step"]);
+
+      const files: string[] = [];
+      if (loadedKicadPcb) files.push("circuit.kicad_pcb");
+      if (loadedKicadSch) files.push("circuit.kicad_sch");
+      if (loadedNetlist) files.push("circuit.net");
+      if (loadedSpice) files.push("circuit.spice");
+      if (loadedCir) files.push("circuit.cir");
+      if (loadedLib) files.push("circuit.lib");
+      if (loadedGerber) files.push("gerbers.gbr.zip");
+      if (loadedDrill) files.push("drills.drl.zip");
+      if (loadedStep) files.push("circuit.step");
+
+      setPromptHistory(
+        loadedChat
+          .split(/\n{2,}/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      );
+
+      if (loadedCode) {
+        setCode(loadedCode);
+      }
+
+      setKicadPcb(loadedKicadPcb);
+      setKicadSch(loadedKicadSch);
+      setNetlist(loadedNetlist);
+      setSpice(loadedSpice);
+      setCir(loadedCir);
+      setLib(loadedLib);
+      setSchematicSvg(loadedSchematic);
+      setGerberZip(loadedGerber);
+      setDrillZip(loadedDrill);
+      setStepData(loadedStep);
+      setGeneratedFiles(files);
+      setRetryUsed(false);
+
+      if (files.length > 0 || loadedSchematic || loadedNetlist || loadedSpice || loadedCir) {
+        setCompileStatus("success");
+      } else {
+        setCompileStatus("idle");
+      }
+    } catch {
+      alert("Failed to load archive. Please use a ZIP exported from this workspace.");
+    } finally {
+      setIsLoadingSession(false);
     }
   };
 
@@ -415,6 +506,8 @@ export default function DesignWorkspace() {
         onApiKeyChange={setApiKey}
         onExport={handleExport}
         isExporting={isExporting}
+        onLoadSession={handleLoadSession}
+        isLoadingSession={isLoadingSession}
         hasCode={!!code}
         agentResponsesEnabled={agentResponsesEnabled}
         onAgentResponsesToggle={setAgentResponsesEnabled}

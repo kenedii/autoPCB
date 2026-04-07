@@ -3,6 +3,7 @@
 import React from "react";
 import {
   Download,
+  Upload,
   ChevronDown,
   Zap,
   SlidersHorizontal,
@@ -42,6 +43,8 @@ interface HeaderProps {
   onApiKeyChange: (key: string) => void;
   onExport: () => void;
   isExporting: boolean;
+  onLoadSession: (file: File) => void;
+  isLoadingSession: boolean;
   hasCode: boolean;
   agentResponsesEnabled: boolean;
   onAgentResponsesToggle: (enabled: boolean) => void;
@@ -100,6 +103,8 @@ export default function Header({
   onApiKeyChange,
   onExport,
   isExporting,
+  onLoadSession,
+  isLoadingSession,
   hasCode,
   agentResponsesEnabled,
   onAgentResponsesToggle,
@@ -108,6 +113,7 @@ export default function Header({
 }: HeaderProps) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [customModel, setCustomModel] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const updateNumberParam = (key: keyof GenerationParams, value: number, min: number, max: number) => {
     if (!Number.isFinite(value)) {
@@ -233,6 +239,29 @@ export default function Header({
           {showAdvanced ? "Hide Advanced" : "Advanced"}
         </button>
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            onLoadSession(file);
+            e.currentTarget.value = "";
+          }}
+        />
+
+        <button
+          className="btn-ghost"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isLoadingSession}
+          style={{ fontSize: "13px", padding: "8px 16px" }}
+        >
+          <Upload size={15} />
+          {isLoadingSession ? "Loading..." : "Load ZIP"}
+        </button>
+
         {/* Export Button */}
         <button
           className="btn-primary"
@@ -241,7 +270,7 @@ export default function Header({
           style={{ fontSize: "13px", padding: "8px 16px" }}
         >
           <Download size={15} />
-          {isExporting ? "Exporting..." : "Export ZIP"}
+          {isExporting ? "Saving..." : "Save Session ZIP"}
         </button>
       </div>
 
