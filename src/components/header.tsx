@@ -5,7 +5,17 @@ import {
   Download,
   ChevronDown,
   Zap,
+  SlidersHorizontal,
 } from "lucide-react";
+
+type GenerationParams = {
+  temperature: number;
+  topP: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  maxTokens: number;
+  planningMaxTokens: number;
+};
 
 interface HeaderProps {
   model: string;
@@ -17,6 +27,8 @@ interface HeaderProps {
   hasCode: boolean;
   agentResponsesEnabled: boolean;
   onAgentResponsesToggle: (enabled: boolean) => void;
+  generationParams: GenerationParams;
+  onGenerationParamsChange: (params: GenerationParams) => void;
 }
 
 const MODELS = [
@@ -38,21 +50,36 @@ export default function Header({
   hasCode,
   agentResponsesEnabled,
   onAgentResponsesToggle,
+  generationParams,
+  onGenerationParamsChange,
 }: HeaderProps) {
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
+  const updateNumberParam = (key: keyof GenerationParams, value: number, min: number, max: number) => {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.min(Math.max(value, min), max);
+    onGenerationParamsChange({
+      ...generationParams,
+      [key]: key.includes("Tokens") ? Math.floor(normalized) : normalized,
+    });
+  };
+
   return (
     <header
       className="glass"
       style={{
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
+        flexDirection: "column",
         padding: "12px 24px",
         borderBottom: "1px solid var(--border-primary)",
         borderRadius: 0,
         zIndex: 100,
       }}
     >
-      {/* Controls - Pushed to the right */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginLeft: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginLeft: "auto", width: "100%", justifyContent: "flex-end", flexWrap: "wrap" }}>
         
         {/* API Key Input */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -135,6 +162,16 @@ export default function Header({
           </button>
         </label>
 
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setShowAdvanced((prev) => !prev)}
+          style={{ fontSize: "12px", padding: "8px 12px" }}
+        >
+          <SlidersHorizontal size={14} />
+          {showAdvanced ? "Hide Advanced" : "Advanced"}
+        </button>
+
         {/* Export Button */}
         <button
           className="btn-primary"
@@ -146,6 +183,96 @@ export default function Header({
           {isExporting ? "Exporting..." : "Export ZIP"}
         </button>
       </div>
+
+      {showAdvanced && (
+        <div
+          style={{
+            marginTop: "10px",
+            width: "100%",
+            borderTop: "1px solid var(--border-primary)",
+            paddingTop: "10px",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "10px",
+          }}
+        >
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Temperature ({generationParams.temperature.toFixed(2)})
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.05}
+              value={generationParams.temperature}
+              onChange={(e) => updateNumberParam("temperature", Number(e.target.value), 0, 2)}
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Top P ({generationParams.topP.toFixed(2)})
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={generationParams.topP}
+              onChange={(e) => updateNumberParam("topP", Number(e.target.value), 0, 1)}
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Frequency Penalty ({generationParams.frequencyPenalty.toFixed(2)})
+            <input
+              type="range"
+              min={-2}
+              max={2}
+              step={0.1}
+              value={generationParams.frequencyPenalty}
+              onChange={(e) => updateNumberParam("frequencyPenalty", Number(e.target.value), -2, 2)}
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Presence Penalty ({generationParams.presencePenalty.toFixed(2)})
+            <input
+              type="range"
+              min={-2}
+              max={2}
+              step={0.1}
+              value={generationParams.presencePenalty}
+              onChange={(e) => updateNumberParam("presencePenalty", Number(e.target.value), -2, 2)}
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Code Max Tokens
+            <input
+              className="input-text"
+              type="number"
+              min={256}
+              max={32768}
+              step={256}
+              value={generationParams.maxTokens}
+              onChange={(e) => updateNumberParam("maxTokens", Number(e.target.value), 256, 32768)}
+              style={{ padding: "6px 10px", fontSize: "12px" }}
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
+            Planner Max Tokens
+            <input
+              className="input-text"
+              type="number"
+              min={256}
+              max={16384}
+              step={256}
+              value={generationParams.planningMaxTokens}
+              onChange={(e) => updateNumberParam("planningMaxTokens", Number(e.target.value), 256, 16384)}
+              style={{ padding: "6px 10px", fontSize: "12px" }}
+            />
+          </label>
+        </div>
+      )}
     </header>
   );
 }

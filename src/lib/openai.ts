@@ -16,10 +16,39 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ChatCompletionOptions {
+  temperature?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  maxTokens?: number;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function sanitizeOptions(options?: ChatCompletionOptions) {
+  const temperature = clampNumber(options?.temperature ?? 0.3, 0, 2);
+  const top_p = clampNumber(options?.topP ?? 1, 0, 1);
+  const frequency_penalty = clampNumber(options?.frequencyPenalty ?? 0, -2, 2);
+  const presence_penalty = clampNumber(options?.presencePenalty ?? 0, -2, 2);
+  const max_tokens = Math.floor(clampNumber(options?.maxTokens ?? 12288, 256, 32768));
+
+  return {
+    temperature,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    max_tokens,
+  };
+}
+
 export async function chatCompletion(
   messages: ChatMessage[],
   model: string = "gpt-4o",
-  customApiKey?: string
+  customApiKey?: string,
+  options?: ChatCompletionOptions
 ): Promise<string> {
   let apiKey = customApiKey;
   let baseURL: string | undefined = undefined;
@@ -40,11 +69,16 @@ export async function chatCompletion(
     baseURL,
   });
 
+  const params = sanitizeOptions(options);
+
   const response = await client.chat.completions.create({
     model,
     messages,
-    temperature: 0.3,
-    max_tokens: 4096,
+    temperature: params.temperature,
+    top_p: params.top_p,
+    frequency_penalty: params.frequency_penalty,
+    presence_penalty: params.presence_penalty,
+    max_tokens: params.max_tokens,
   });
 
   const content = response.choices[0]?.message?.content;
