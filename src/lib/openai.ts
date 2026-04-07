@@ -52,10 +52,21 @@ export async function chatCompletion(
 ): Promise<string> {
   let apiKey = customApiKey;
   let baseURL: string | undefined = undefined;
+  const normalizedModel = model.toLowerCase();
 
-  if (model.startsWith("deepseek")) {
+  if (normalizedModel.startsWith("deepseek")) {
     apiKey = apiKey || process.env.DEEPSEEK_API_KEY;
     baseURL = "https://api.deepseek.com";
+  } else if (
+    normalizedModel.startsWith("claude") ||
+    normalizedModel.startsWith("gemini") ||
+    normalizedModel.startsWith("qwen") ||
+    normalizedModel.startsWith("anthropic/") ||
+    normalizedModel.startsWith("google/") ||
+    normalizedModel.startsWith("qwen/")
+  ) {
+    apiKey = apiKey || process.env.OPENROUTER_API_KEY;
+    baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
   } else {
     apiKey = apiKey || process.env.OPENAI_API_KEY;
   }

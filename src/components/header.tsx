@@ -49,14 +49,49 @@ interface HeaderProps {
   onGenerationParamsChange: (params: GenerationParams) => void;
 }
 
-const MODELS = [
-  { value: "deepseek-chat", label: "DeepSeek Chat" },
-  { value: "deepseek-reasoner", label: "DeepSeek Reasoner" },
-  { value: "gpt-4o", label: "GPT-4o" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-  { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
+const MODEL_GROUPS = [
+  {
+    label: "OpenAI",
+    models: [
+      { value: "gpt-5", label: "GPT-5" },
+      { value: "gpt-5-mini", label: "GPT-5 Mini" },
+      { value: "gpt-5-nano", label: "GPT-5 Nano (Budget)" },
+      { value: "gpt-4.1", label: "GPT-4.1" },
+      { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
+    ],
+  },
+  {
+    label: "DeepSeek",
+    models: [
+      { value: "deepseek-chat", label: "DeepSeek Chat" },
+      { value: "deepseek-reasoner", label: "DeepSeek Reasoner" },
+    ],
+  },
+  {
+    label: "Claude (OpenRouter)",
+    models: [
+      { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
+      { value: "anthropic/claude-opus-4", label: "Claude Opus 4" },
+    ],
+  },
+  {
+    label: "Gemini (OpenRouter)",
+    models: [
+      { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    ],
+  },
+  {
+    label: "Qwen (OpenRouter)",
+    models: [
+      { value: "qwen/qwen3-235b-a22b", label: "Qwen3 235B" },
+      { value: "qwen/qwen3-32b", label: "Qwen3 32B" },
+    ],
+  },
 ];
+
+const QUICK_MODEL_LIST = MODEL_GROUPS.flatMap((group) => group.models);
+const KNOWN_MODEL_VALUES = new Set(QUICK_MODEL_LIST.map((m) => m.value));
 
 export default function Header({
   model,
@@ -72,6 +107,7 @@ export default function Header({
   onGenerationParamsChange,
 }: HeaderProps) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [customModel, setCustomModel] = React.useState("");
 
   const updateNumberParam = (key: keyof GenerationParams, value: number, min: number, max: number) => {
     if (!Number.isFinite(value)) {
@@ -119,10 +155,17 @@ export default function Header({
             value={model}
             onChange={(e) => onModelChange(e.target.value)}
           >
-            {MODELS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
+            {!KNOWN_MODEL_VALUES.has(model) && (
+              <option value={model}>{`Custom: ${model}`}</option>
+            )}
+            {MODEL_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.models.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <ChevronDown
@@ -239,6 +282,61 @@ export default function Header({
               >
                 Reset Defaults
               </button>
+            </div>
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                border: "1px solid var(--border-primary)",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--bg-secondary)",
+                padding: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 600 }}>
+                Model Settings
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {QUICK_MODEL_LIST.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => onModelChange(m.value)}
+                    style={{
+                      fontSize: "11px",
+                      padding: "4px 8px",
+                      borderColor: model === m.value ? "var(--accent-secondary)" : "var(--border-primary)",
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <input
+                  className="input-text"
+                  value={customModel}
+                  onChange={(e) => setCustomModel(e.target.value)}
+                  placeholder="Custom model name (for unlisted models)"
+                  style={{ minWidth: "280px", flex: 1, padding: "6px 10px", fontSize: "12px" }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    const value = customModel.trim();
+                    if (!value) return;
+                    onModelChange(value);
+                  }}
+                  style={{ fontSize: "12px", padding: "6px 10px" }}
+                >
+                  Use Custom
+                </button>
+              </div>
             </div>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
