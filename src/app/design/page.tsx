@@ -15,6 +15,24 @@ type PaneSizes = {
   output: number;
 };
 
+type GenerationParams = {
+  temperature: number;
+  topP: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  maxTokens: number;
+  planningMaxTokens: number;
+};
+
+const DEFAULT_GENERATION_PARAMS: GenerationParams = {
+  temperature: 0.3,
+  topP: 1,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  maxTokens: 12288,
+  planningMaxTokens: 3072,
+};
+
 const MIN = {
   chat: 16,
   code: 28,
@@ -29,6 +47,7 @@ export default function DesignWorkspace() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [agentResponsesEnabled, setAgentResponsesEnabled] = useState(true);
   const [paneSizes, setPaneSizes] = useState<PaneSizes>({ chat: 24, code: 46, output: 30 });
+  const [generationParams, setGenerationParams] = useState<GenerationParams>(DEFAULT_GENERATION_PARAMS);
   const [activeFullscreen, setActiveFullscreen] = useState<PanelKey | null>(null);
   const [dragHandle, setDragHandle] = useState<"left" | "right" | null>(null);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -71,6 +90,19 @@ export default function DesignWorkspace() {
       setAgentResponsesEnabled(false);
     }
 
+    const savedGenerationParams = window.localStorage.getItem("design:generationParams");
+    if (savedGenerationParams) {
+      try {
+        const parsed = JSON.parse(savedGenerationParams) as Partial<GenerationParams>;
+        setGenerationParams((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+      } catch {
+        // Ignore invalid local storage values.
+      }
+    }
+
     const checkNarrow = () => setIsNarrow(window.innerWidth < 1180);
     checkNarrow();
     window.addEventListener("resize", checkNarrow);
@@ -84,6 +116,10 @@ export default function DesignWorkspace() {
   useEffect(() => {
     window.localStorage.setItem("design:agentReplies", agentResponsesEnabled ? "1" : "0");
   }, [agentResponsesEnabled]);
+
+  useEffect(() => {
+    window.localStorage.setItem("design:generationParams", JSON.stringify(generationParams));
+  }, [generationParams]);
 
   useEffect(() => {
     if (!dragHandle) return;
@@ -165,7 +201,7 @@ export default function DesignWorkspace() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, model, existingCode: code, apiKey }),
+        body: JSON.stringify({ prompt, model, existingCode: code, apiKey, generationParams }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -382,6 +418,8 @@ export default function DesignWorkspace() {
         hasCode={!!code}
         agentResponsesEnabled={agentResponsesEnabled}
         onAgentResponsesToggle={setAgentResponsesEnabled}
+        generationParams={generationParams}
+        onGenerationParamsChange={setGenerationParams}
       />
       <div
         ref={containerRef}
