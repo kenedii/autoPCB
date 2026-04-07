@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npm run test:python",
+    "test:python": "python -m unittest -v test_skidl.py"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

@@ -26,7 +26,7 @@ class AutoPart(OriginalPart):
             elif len(args) == 1:
                 name = args[0]
             
-            kwargs_new = {'tool': kwargs.get('tool', 'SKIDL'), 'name': name, 'pins': []}
+            kwargs_new = {'tool': kwargs.get('tool', skidl.SKIDL), 'name': name, 'pins': []}
             if 'footprint' in kwargs: kwargs_new['footprint'] = kwargs['footprint']
             if 'value' in kwargs: kwargs_new['value'] = kwargs['value']
             if 'ref' in kwargs: kwargs_new['ref'] = kwargs['ref']
@@ -36,7 +36,12 @@ class AutoPart(OriginalPart):
 
     def __getitem__(self, key):
         try:
-            return super().__getitem__(key)
+            res = super().__getitem__(key)
+            if res is None or (isinstance(res, (list, tuple)) and len(res) == 0):
+                p = Pin(num=str(key), name=str(key))
+                self += p
+                return super().__getitem__(key)
+            return res
         except Exception:
             p = Pin(num=str(key), name=str(key))
             self += p
@@ -44,7 +49,13 @@ class AutoPart(OriginalPart):
 
     def __getattr__(self, key):
         try:
-            return super().__getattr__(key)
+            res = super().__getattr__(key)
+            if res is None or (isinstance(res, (list, tuple)) and len(res) == 0):
+                k = str(key)
+                p = Pin(num=k, name=k)
+                self += p
+                return super().__getattr__(key)
+            return res
         except Exception as e:
             k = str(key)
             if k.startswith('_') or k in ['ref_prefix', 'circuit', 'logger', 'name', 'ref', 'value', 'footprint', 'hierarchy', 'aliases', 'keywords', 'description', 'datasheet', 'search_text', 'do_erc']:
@@ -56,6 +67,8 @@ class AutoPart(OriginalPart):
 skidl.Part = AutoPart
 Part = AutoPart
 `;
+
+const OUTPUT_BLOCK_MARKER = "# AUTOSKIDL_OUTPUT_BLOCK";
 
 /**
  * Pre-execution sanitizer: fixes common AI-generated SKiDL mistakes before running.
@@ -93,12 +106,32 @@ function sanitizeSkidlCode(code: string): string {
     result = "from skidl import *\nset_default_tool(KICAD6)\n" + MONKEY_PATCH + "\n" + result;
   }
 
-  // Append output generators after generate_netlist()
-  if (result.includes("generate_netlist()") && !result.includes("generate_netlist(file_=")) {
-    result = result.replace(
-      /generate_netlist\(\)/g,
-      `generate_netlist()\ntry:\n    generate_netlist(file_='circuit.spice', tool=SPICE)\nexcept Exception:\n    pass\ntry:\n    generate_pcb(file_='circuit.kicad_pcb')\nexcept Exception:\n    pass\ntry:\n    generate_schematic(file_='circuit.kicad_sch')\nexcept Exception:\n    pass`
-    );
+  // Always append output generators so circuits without explicit generate_* calls still produce files.
+  if (!result.includes(OUTPUT_BLOCK_MARKER)) {
+    result += `
+
+${OUTPUT_BLOCK_MARKER}
+try:
+    generate_netlist(file_='circuit.net')
+except Exception:
+    pass
+try:
+    generate_netlist(file_='circuit.spice', tool=SPICE)
+except Exception:
+    pass
+try:
+    generate_netlist(file_='circuit.cir', tool=SPICE)
+except Exception:
+    pass
+try:
+    generate_pcb(file_='circuit.kicad_pcb')
+except Exception:
+    pass
+try:
+    generate_schematic(file_='circuit.kicad_sch')
+except Exception:
+    pass
+`;
   }
 
   return result;
@@ -207,7 +240,7 @@ async function executeSkidl(
         await writeFile(join(workDir, "sym-lib-table"), await readFile("/usr/share/kicad/template/sym-lib-table", "utf-8"));
       }
     }
-  } catch (e) {
+  } catch {
     // Ignore if not accessible
   }
 
@@ -229,56 +262,63 @@ async function executeSkidl(
 async function collectOutputFiles(
   workDir: string
 ): Promise<{ kicadPcb?: string; kicadSch?: string; netlist?: string; spice?: string; schematicSvg?: string; gerberZipBase64?: string; drillZipBase64?: string; stepBase64?: string; cir?: string; lib?: string }> {
-  const result: any = {};
+  const result: {
+    kicadPcb?: string;
+    kicadSch?: string;
+    netlist?: string;
+    spice?: string;
+    schematicSvg?: string;
+    gerberZipBase64?: string;
+    drillZipBase64?: string;
+    stepBase64?: string;
+    cir?: string;
+    lib?: string;
+  } = {};
 
-  // Try to read various output files SKiDL might generate
-  const extensions = [
-    { ext: ".kicad_pcb", key: "kicadPcb" },
-    { ext: ".kicad_sch", key: "kicadSch" },
-    { ext: ".net", key: "netlist" },
-    { ext: ".spice", key: "spice" },
-    { ext: ".cir", key: "cir" },
-    { ext: ".lib", key: "lib" },
-  ];
+  const filesInDir = await readdir(workDir).catch(() => []);
+  const pickByExt = (ext: string): string | undefined => {
+    const preferred = ["circuit", "design", "output"];
+    const matching = filesInDir.filter((f) => f.toLowerCase().endsWith(ext.toLowerCase()));
+    if (matching.length === 0) return undefined;
+    const preferredMatch = matching.find((f) => preferred.some((p) => f.toLowerCase().startsWith(p)));
+    return preferredMatch || matching[0];
+  };
 
-  for (const { ext, key } of extensions) {
+  const pcbFile = pickByExt(".kicad_pcb");
+  const schFile = pickByExt(".kicad_sch");
+  const netFile = pickByExt(".net");
+  const spiceFile = pickByExt(".spice");
+  const cirFile = pickByExt(".cir");
+  const libFile = pickByExt(".lib");
+
+  if (pcbFile) result.kicadPcb = await readFile(join(workDir, pcbFile), "utf-8");
+  if (schFile) {
+    const schPath = join(workDir, schFile);
+    result.kicadSch = await readFile(schPath, "utf-8");
     try {
-      // SKiDL usually names output files based on the script name
-      const possibleNames = [
-        join(workDir, `circuit${ext}`),
-        join(workDir, `circuit_pcb${ext}`),
-      ];
-
-      for (const filePath of possibleNames) {
-        try {
-          const content = await readFile(filePath, "utf-8");
-          result[key] = content;
-          
-          if (ext === ".kicad_sch") {
-            try {
-              const svgPath = filePath.replace(".kicad_sch", ".svg");
-              await new Promise<void>((resolve) => {
-                // Generate SVG and resolve regardless of success/fail
-                exec(`kicad-cli sch export svg "${filePath}" -o "${svgPath}" --theme "kicad 2020"`, { cwd: workDir, timeout: 30000 }, () => resolve());
-              });
-              result.schematicSvg = await readFile(svgPath, "utf-8");
-            } catch (e) {
-              console.error("[kicad-cli] Failed to generate SVG", e);
-            }
-          }
-          break;
-        } catch {
-          // File doesn't exist, try next
-        }
+      const svgPath = schPath.replace(".kicad_sch", ".svg");
+      await new Promise<void>((resolve) => {
+        exec(
+          `kicad-cli sch export svg "${schPath}" -o "${svgPath}" --theme "kicad 2020"`,
+          { cwd: workDir, timeout: 30000 },
+          () => resolve()
+        );
+      });
+      if (existsSync(svgPath)) {
+        result.schematicSvg = await readFile(svgPath, "utf-8");
       }
-    } catch {
-      // Skip
+    } catch (e) {
+      console.error("[kicad-cli] Failed to generate SVG", e);
     }
   }
+  if (netFile) result.netlist = await readFile(join(workDir, netFile), "utf-8");
+  if (spiceFile) result.spice = await readFile(join(workDir, spiceFile), "utf-8");
+  if (cirFile) result.cir = await readFile(join(workDir, cirFile), "utf-8");
+  if (libFile) result.lib = await readFile(join(workDir, libFile), "utf-8");
 
   // Generate extras if PCB exists
-  const pcbPath = join(workDir, "circuit.kicad_pcb");
-  if (existsSync(pcbPath)) {
+  const pcbPath = pcbFile ? join(workDir, pcbFile) : "";
+  if (pcbPath && existsSync(pcbPath)) {
     try {
       const gbrDir = join(workDir, "gerbers");
       await mkdir(gbrDir, { recursive: true });
@@ -334,6 +374,9 @@ async function collectOutputFiles(
   // Populate .cir or .lib if generating spice was successful
   if (result.spice && !result.cir) result.cir = result.spice;
   if (result.spice && !result.lib) result.lib = result.spice;
+  if (result.netlist && !result.spice) result.spice = result.netlist;
+  if (result.netlist && !result.cir) result.cir = result.netlist;
+  if (result.netlist && !result.lib) result.lib = result.netlist;
 
   return result;
 }
@@ -379,6 +422,19 @@ export async function POST(request: NextRequest) {
       result.stepBase64 = files.stepBase64;
       result.cir = files.cir;
       result.lib = files.lib;
+
+      const producedAny = !!(
+        result.kicadPcb ||
+        result.kicadSch ||
+        result.netlist ||
+        result.spice ||
+        result.cir ||
+        result.lib
+      );
+      if (!producedAny) {
+        result.success = false;
+        result.error = "Compilation ran, but no output artifacts were produced. Check part/library compatibility and ensure output generation is possible for this circuit.";
+      }
     } else {
       // RETRY-ON-ERROR: Give the AI one chance to fix the code
       const errorOutput = `${execResult.stdout}\n${execResult.stderr}`.trim();
@@ -429,6 +485,19 @@ export async function POST(request: NextRequest) {
             result.stepBase64 = files.stepBase64;
             result.cir = files.cir;
             result.lib = files.lib;
+
+            const producedAny = !!(
+              result.kicadPcb ||
+              result.kicadSch ||
+              result.netlist ||
+              result.spice ||
+              result.cir ||
+              result.lib
+            );
+            if (!producedAny) {
+              result.success = false;
+              result.error = "Auto-fix execution completed, but no output artifacts were produced.";
+            }
           } else {
             result.error = `Original error:\n${errorOutput}\n\nRetry error:\n${execResult.stdout}\n${execResult.stderr}`.trim();
           }

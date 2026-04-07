@@ -27,12 +27,14 @@ interface CodePanelProps {
   code: string;
   onCodeChange: (code: string) => void;
   isGenerating: boolean;
+  headerActions?: React.ReactNode;
 }
 
 export default function CodePanel({
   code,
   onCodeChange,
   isGenerating,
+  headerActions,
 }: CodePanelProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -66,6 +68,7 @@ export default function CodePanel({
         >
           circuit.py
         </span>
+        {headerActions}
 
         <div style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
           {isGenerating && (
