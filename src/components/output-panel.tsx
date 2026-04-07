@@ -19,10 +19,11 @@ import {
 } from "lucide-react";
 import NetlistViewer from "@/components/netlist-viewer";
 import ConnectionsViewer from "@/components/connections-viewer";
+import WiringDiagramViewer from "@/components/wiring-diagram-viewer";
 
 export type CompileStatus = "idle" | "compiling" | "success" | "error" | "retrying";
 
-type ActiveTab = "files" | "netlist" | "connections" | "schematic" | "spice";
+type ActiveTab = "files" | "netlist" | "connections" | "wiring" | "schematic" | "spice";
 
 interface OutputPanelProps {
   status: CompileStatus;
@@ -41,6 +42,7 @@ interface OutputPanelProps {
   gerberZip?: string;
   drillZip?: string;
   stepData?: string;
+  headerActions?: React.ReactNode;
 }
 
 export default function OutputPanel({
@@ -60,6 +62,7 @@ export default function OutputPanel({
   gerberZip,
   drillZip,
   stepData,
+  headerActions,
 }: OutputPanelProps) {
   const [activeTab, setActiveTab] = React.useState<ActiveTab>("files");
 
@@ -141,19 +144,14 @@ export default function OutputPanel({
 
   const hasOutput = generatedFiles.length > 0 || schematicSvg || netlist || spice || cir || status === "success";
 
-  // Tab button helper
-  const TabBtn = ({
-    tab,
-    label,
-    icon,
-    available,
-  }: {
-    tab: ActiveTab;
-    label: string;
-    icon: React.ReactNode;
-    available: boolean;
-  }) =>
-    available ? (
+  const renderTabBtn = (
+    tab: ActiveTab,
+    label: string,
+    icon: React.ReactNode,
+    available: boolean
+  ) => {
+    if (!available) return null;
+    return (
       <button
         onClick={() => setActiveTab(tab)}
         style={{
@@ -175,7 +173,8 @@ export default function OutputPanel({
         {icon}
         {label}
       </button>
-    ) : null;
+    );
+  };
 
   return (
     <div
@@ -189,6 +188,7 @@ export default function OutputPanel({
       <div className="panel-header">
         <Terminal size={14} style={{ color: "var(--accent-secondary)" }} />
         <span>Output</span>
+        {headerActions}
         <div style={{ marginLeft: "auto" }}>{getStatusBadge()}</div>
       </div>
 
@@ -276,11 +276,12 @@ export default function OutputPanel({
                 flexShrink: 0,
               }}
             >
-              <TabBtn tab="files" label="Files" icon={<FileCode2 size={12} />} available={generatedFiles.length > 0} />
-              <TabBtn tab="netlist" label="Netlist Graph" icon={<Network size={12} />} available={!!netlist} />
-              <TabBtn tab="connections" label="Circuit Table" icon={<List size={12} />} available={!!netlist} />
-              <TabBtn tab="schematic" label="Schematic" icon={<FileImage size={12} />} available={!!schematicSvg} />
-              <TabBtn tab="spice" label="SPICE" icon={<FileText size={12} />} available={!!(spice || cir)} />
+              {renderTabBtn("files", "Files", <FileCode2 size={12} />, generatedFiles.length > 0)}
+              {renderTabBtn("netlist", "Netlist Graph", <Network size={12} />, !!netlist)}
+              {renderTabBtn("connections", "Circuit Table", <List size={12} />, !!netlist)}
+              {renderTabBtn("wiring", "Wiring", <Cpu size={12} />, !!netlist)}
+              {renderTabBtn("schematic", "Schematic", <FileImage size={12} />, !!schematicSvg)}
+              {renderTabBtn("spice", "SPICE", <FileText size={12} />, !!(spice || cir))}
             </div>
 
             {/* FILES TAB */}
@@ -366,6 +367,13 @@ export default function OutputPanel({
             {activeTab === "connections" && netlist && (
               <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
                 <ConnectionsViewer netlistXml={netlist} />
+              </div>
+            )}
+
+            {/* WIRING TAB */}
+            {activeTab === "wiring" && netlist && (
+              <div className="animate-fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <WiringDiagramViewer netlistXml={netlist} />
               </div>
             )}
 

@@ -14,6 +14,7 @@ interface PromptPanelProps {
   isGenerating: boolean;
   hasExistingCode: boolean;
   promptHistory: string[];
+  headerActions?: React.ReactNode;
 }
 
 export default function PromptPanel({
@@ -21,6 +22,7 @@ export default function PromptPanel({
   isGenerating,
   hasExistingCode,
   promptHistory,
+  headerActions,
 }: PromptPanelProps) {
   const [prompt, setPrompt] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -59,6 +61,7 @@ export default function PromptPanel({
       <div className="panel-header">
         <Sparkles size={14} style={{ color: "var(--accent-primary)" }} />
         <span>Design Prompt</span>
+        {headerActions}
         {hasExistingCode && (
           <span
             className="status-badge status-badge--loading"

@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  Cpu,
   Download,
   ChevronDown,
   Zap,
@@ -16,6 +15,8 @@ interface HeaderProps {
   onExport: () => void;
   isExporting: boolean;
   hasCode: boolean;
+  agentResponsesEnabled: boolean;
+  onAgentResponsesToggle: (enabled: boolean) => void;
 }
 
 const MODELS = [
@@ -35,6 +36,8 @@ export default function Header({
   onExport,
   isExporting,
   hasCode,
+  agentResponsesEnabled,
+  onAgentResponsesToggle,
 }: HeaderProps) {
   return (
     <header
@@ -87,6 +90,50 @@ export default function Header({
             }}
           />
         </div>
+
+        {/* Agent Response Toggle */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: "var(--text-secondary)",
+            fontSize: "12px",
+            fontWeight: 600,
+            userSelect: "none",
+          }}
+        >
+          Agent Replies
+          <button
+            type="button"
+            onClick={() => onAgentResponsesToggle(!agentResponsesEnabled)}
+            aria-label="Toggle agent replies"
+            aria-pressed={agentResponsesEnabled}
+            style={{
+              width: "44px",
+              height: "24px",
+              borderRadius: "999px",
+              border: "1px solid var(--border-primary)",
+              background: agentResponsesEnabled ? "var(--accent-success)" : "var(--bg-elevated)",
+              position: "relative",
+              cursor: "pointer",
+              transition: "background 0.2s",
+            }}
+          >
+            <span
+              style={{
+                width: "18px",
+                height: "18px",
+                borderRadius: "50%",
+                background: "white",
+                position: "absolute",
+                top: "2px",
+                left: agentResponsesEnabled ? "22px" : "2px",
+                transition: "left 0.2s",
+              }}
+            />
+          </button>
+        </label>
 
         {/* Export Button */}
         <button
