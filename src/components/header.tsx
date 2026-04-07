@@ -17,6 +17,24 @@ type GenerationParams = {
   planningMaxTokens: number;
 };
 
+const LARGE_BOARD_PRESET: GenerationParams = {
+  temperature: 0.2,
+  topP: 0.95,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  maxTokens: 24576,
+  planningMaxTokens: 6144,
+};
+
+const DEFAULT_PRESET: GenerationParams = {
+  temperature: 0.3,
+  topP: 1,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  maxTokens: 12288,
+  planningMaxTokens: 3072,
+};
+
 interface HeaderProps {
   model: string;
   onModelChange: (model: string) => void;
@@ -196,6 +214,33 @@ export default function Header({
             gap: "10px",
           }}
         >
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => onGenerationParamsChange(LARGE_BOARD_PRESET)}
+                style={{ fontSize: "12px", padding: "6px 10px" }}
+              >
+                Large Board Mode
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => onGenerationParamsChange(DEFAULT_PRESET)}
+                style={{ fontSize: "12px", padding: "6px 10px" }}
+              >
+                Reset Defaults
+              </button>
+            </div>
+
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" }}>
             Temperature ({generationParams.temperature.toFixed(2)})
             <input
