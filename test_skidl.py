@@ -277,6 +277,80 @@ for i in range(4):
 """,
             ),
             (
+                "am3_socket_stub",
+                """
+from skidl import *
+v12 = Net('12V')
+v5 = Net('5V')
+gnd = Net('GND')
+
+atx24 = Part('Connector', 'ATX_24Pin', ref='J1', footprint='Connector_PinHeader_2.54mm:PinHeader_1x24_P2.54mm_Vertical')
+eps8 = Part('Connector', 'ATX_8Pin', ref='J2', footprint='Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical')
+cpu = Part('AMD', 'AM3_CPU', ref='U1', footprint='Package_BGA:UFBGA-938_31x31mm_Layout30x30_P1.0mm')
+dimm = Part('Memory', 'DDR3_DIMM', ref='J3', footprint='Connector_PCBEdge:DDR3_DIMM')
+
+for i in range(1, 25):
+    v12 += atx24[i]
+for i in range(1, 9):
+    v12 += eps8[i]
+v5 += cpu[1]
+gnd += cpu[2]
+v5 += dimm[1]
+gnd += dimm[2]
+""",
+            ),
+            (
+                "am4_socket_stub",
+                """
+from skidl import *
+v12 = Net('12V')
+gnd = Net('GND')
+
+atx24 = Part('Connector', 'ATX_24Pin', ref='J1', footprint='Connector_PinHeader_2.54mm:PinHeader_1x24_P2.54mm_Vertical')
+eps8 = Part('Connector', 'ATX_8Pin', ref='J2', footprint='Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical')
+cpu = Part('AMD', 'Ryzen_AM4', ref='U1', footprint='Package_BGA:UFBGA-1331_40x40mm_Layout37x37_P1.0mm')
+pciex = Part('Connector', 'PCIExpress_x16', ref='J3', footprint='Connector_PCBEdge:BUS_PCI_Express_x16')
+m2 = Part('Connector', 'M.2_M-Key', ref='J4', footprint='Connector_PCBEdge:M.2_M')
+
+for i in range(1, 25):
+    v12 += atx24[i]
+for i in range(1, 9):
+    v12 += eps8[i]
+v12 += pciex[1]
+gnd += pciex[2]
+v12 += m2[1]
+gnd += m2[2]
+v12 += cpu[1]
+gnd += cpu[2]
+""",
+            ),
+            (
+                "am5_socket_stub",
+                """
+from skidl import *
+v12 = Net('12V')
+v5 = Net('5V')
+gnd = Net('GND')
+
+atx24 = Part('Connector', 'ATX_24Pin', ref='J1', footprint='Connector_PinHeader_2.54mm:PinHeader_1x24_P2.54mm_Vertical')
+eps8 = Part('Connector', 'ATX_8Pin', ref='J2', footprint='Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical')
+cpu = Part('AMD', 'Ryzen_AM5', ref='U1', footprint='Package_LGA:LGA-1718')
+dimm_a = Part('Memory', 'DDR5_DIMM', ref='J3', footprint='Connector_PCBEdge:DDR5_DIMM')
+dimm_b = Part('Memory', 'DDR5_DIMM', ref='J4', footprint='Connector_PCBEdge:DDR5_DIMM')
+
+for i in range(1, 25):
+    v12 += atx24[i]
+for i in range(1, 9):
+    v12 += eps8[i]
+v12 += cpu[1]
+gnd += cpu[2]
+v5 += dimm_a[1]
+gnd += dimm_a[2]
+v5 += dimm_b[1]
+gnd += dimm_b[2]
+""",
+            ),
+            (
                 "mixed_old_new_ics",
                 """
 from skidl import *

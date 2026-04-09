@@ -151,7 +151,7 @@ function inferPinCount(lib: string, part: string): number {
   return 16;
 }
 
-function normalizePartCalls(code: string): string {
+function normalizePartCalls(code: string, forceAllLibraries = false): string {
   return code.replace(
     /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*Part\((.+?)\)\s*$/gm,
     (line, indent: string, varName: string, argList: string) => {
@@ -168,7 +168,7 @@ function normalizePartCalls(code: string): string {
       const part = positional[2];
       const safeLib = SAFE_LIBRARIES.has(lib.trim().toLowerCase());
 
-      if (safeLib) {
+      if (safeLib && !forceAllLibraries) {
         return line;
       }
 
@@ -190,6 +190,28 @@ function normalizePartCalls(code: string): string {
       return `${indent}${varName} = _autoskidl_make_part(${params.join(", ")})`;
     }
   );
+}
+
+function hasArtifacts(files: {
+  kicadPcb?: string;
+  kicadSch?: string;
+  netlist?: string;
+  spice?: string;
+  cir?: string;
+  lib?: string;
+}): boolean {
+  return !!(
+    files.kicadPcb ||
+    files.kicadSch ||
+    files.netlist ||
+    files.spice ||
+    files.cir ||
+    files.lib
+  );
+}
+
+interface SanitizeOptions {
+  forcePartFallback?: boolean;
 }
 
 function repairCommonPluralTypos(code: string): string {
@@ -236,10 +258,11 @@ function repairCommonPluralTypos(code: string): string {
  *
  * 4. Injects MONKEY_PATCH to prevent "Unable to find part" crashes.
  */
-function sanitizeSkidlCode(code: string): string {
+function sanitizeSkidlCode(code: string, options: SanitizeOptions = {}): string {
   let result = code;
+  const forcePartFallback = options.forcePartFallback === true;
 
-  result = normalizePartCalls(result);
+  result = normalizePartCalls(result, forcePartFallback);
   result = repairCommonPluralTypos(result);
 
   // Fix: Net('X') += something  →  _net_X = Net('X')\n_net_X += something
@@ -268,26 +291,17 @@ function sanitizeSkidlCode(code: string): string {
     result += `
 
 ${OUTPUT_BLOCK_MARKER}
-try:
-    generate_netlist(file_='circuit.net')
-except Exception:
-    pass
-try:
-    generate_netlist(file_='circuit.spice', tool=SPICE)
-except Exception:
-    pass
-try:
-    generate_netlist(file_='circuit.cir', tool=SPICE)
-except Exception:
-    pass
-try:
-    generate_pcb(file_='circuit.kicad_pcb')
-except Exception:
-    pass
-try:
-    generate_schematic(file_='circuit.kicad_sch')
-except Exception:
-    pass
+def _autoskidl_safe_generate(label, fn):
+  try:
+    fn()
+  except Exception as e:
+    print(f'AUTOSKIDL_OUTPUT_ERROR[{label}]: {e}')
+
+_autoskidl_safe_generate('netlist', lambda: generate_netlist(file_='circuit.net'))
+_autoskidl_safe_generate('spice', lambda: generate_netlist(file_='circuit.spice', tool=SPICE))
+_autoskidl_safe_generate('cir', lambda: generate_netlist(file_='circuit.cir', tool=SPICE))
+_autoskidl_safe_generate('pcb', lambda: generate_pcb(file_='circuit.kicad_pcb'))
+_autoskidl_safe_generate('schematic', lambda: generate_schematic(file_='circuit.kicad_sch'))
 `;
   }
 
@@ -580,17 +594,36 @@ export async function POST(request: NextRequest) {
       result.cir = files.cir;
       result.lib = files.lib;
 
-      const producedAny = !!(
-        result.kicadPcb ||
-        result.kicadSch ||
-        result.netlist ||
-        result.spice ||
-        result.cir ||
-        result.lib
-      );
+      let producedAny = hasArtifacts(result);
       if (!producedAny) {
+        // Forced compatibility fallback: rewrite all Part(...) calls to manual SKIDL parts.
+        await rm(workDir, { recursive: true, force: true });
+        await mkdir(workDir, { recursive: true });
+
+        codeToRun = sanitizeSkidlCode(skidlCode, { forcePartFallback: true });
+        execResult = await executeSkidl(codeToRun, workDir);
+
+        if (execResult.success) {
+          const fallbackFiles = await collectOutputFiles(workDir);
+          result.kicadPcb = fallbackFiles.kicadPcb;
+          result.kicadSch = fallbackFiles.kicadSch;
+          result.netlist = fallbackFiles.netlist;
+          result.spice = fallbackFiles.spice;
+          result.schematicSvg = fallbackFiles.schematicSvg;
+          result.gerberZipBase64 = fallbackFiles.gerberZipBase64;
+          result.drillZipBase64 = fallbackFiles.drillZipBase64;
+          result.stepBase64 = fallbackFiles.stepBase64;
+          result.cir = fallbackFiles.cir;
+          result.lib = fallbackFiles.lib;
+          result.retryUsed = true;
+          producedAny = hasArtifacts(result);
+        }
+      }
+
+      if (!producedAny) {
+        const outputLog = `${execResult.stdout}\n${execResult.stderr}`.trim();
         result.success = false;
-        result.error = "Compilation ran, but no output artifacts were produced. Check part/library compatibility and ensure output generation is possible for this circuit.";
+        result.error = `Compilation ran, but no output artifacts were produced.\n\n${outputLog || "No compiler output was emitted."}`;
       }
     } else {
       // RETRY-ON-ERROR: Give the AI one chance to fix the code
@@ -643,17 +676,11 @@ export async function POST(request: NextRequest) {
             result.cir = files.cir;
             result.lib = files.lib;
 
-            const producedAny = !!(
-              result.kicadPcb ||
-              result.kicadSch ||
-              result.netlist ||
-              result.spice ||
-              result.cir ||
-              result.lib
-            );
+            const producedAny = hasArtifacts(result);
             if (!producedAny) {
               result.success = false;
-              result.error = "Auto-fix execution completed, but no output artifacts were produced.";
+              const outputLog = `${execResult.stdout}\n${execResult.stderr}`.trim();
+              result.error = `Auto-fix execution completed, but no output artifacts were produced.\n\n${outputLog || "No compiler output was emitted."}`;
             }
           } else {
             result.error = `Original error:\n${errorOutput}\n\nRetry error:\n${execResult.stdout}\n${execResult.stderr}`.trim();
