@@ -199,6 +199,111 @@ u1['1B'] += b
 u1['1Y'] += y
 """,
             ),
+            (
+                "esp32_dev_board_style",
+                """
+from skidl import *
+v33 = Net('3V3')
+gnd = Net('GND')
+uart_tx = Net('UART_TX')
+uart_rx = Net('UART_RX')
+
+esp32 = Part(tool=SKIDL, name='ESP32_WROOM32', ref='U1', footprint='RF_Module:ESP32-WROOM-32',
+             pins=[Pin(num='1', name='3V3'), Pin(num='2', name='EN'), Pin(num='3', name='IO36'),
+                   Pin(num='4', name='IO39'), Pin(num='5', name='IO34'), Pin(num='6', name='IO35'),
+                   Pin(num='7', name='IO32'), Pin(num='8', name='IO33'), Pin(num='9', name='IO25'),
+                   Pin(num='10', name='IO26'), Pin(num='11', name='IO27'), Pin(num='12', name='IO14'),
+                   Pin(num='13', name='IO12'), Pin(num='14', name='GND'), Pin(num='15', name='IO13'),
+                   Pin(num='16', name='IO9'), Pin(num='17', name='IO10'), Pin(num='18', name='IO11'),
+                   Pin(num='19', name='IO6'), Pin(num='20', name='IO7'), Pin(num='21', name='IO8'),
+                   Pin(num='22', name='IO15'), Pin(num='23', name='IO2'), Pin(num='24', name='IO0'),
+                   Pin(num='25', name='IO4'), Pin(num='26', name='IO16'), Pin(num='27', name='IO17'),
+                   Pin(num='28', name='IO5'), Pin(num='29', name='IO18'), Pin(num='30', name='IO19'),
+                   Pin(num='31', name='NC'), Pin(num='32', name='IO21'), Pin(num='33', name='RX0'),
+                   Pin(num='34', name='TX0'), Pin(num='35', name='IO22'), Pin(num='36', name='IO23'),
+                   Pin(num='37', name='GND'), Pin(num='38', name='IO1')])
+
+v33 += esp32['3V3']
+gnd += esp32['GND']
+uart_tx += esp32['TX0']
+uart_rx += esp32['RX0']
+""",
+            ),
+            (
+                "legacy_6502_minimal",
+                """
+from skidl import *
+vcc = Net('VCC')
+gnd = Net('GND')
+clk = Net('CLK')
+resb = Net('RESB')
+
+cpu = Part(tool=SKIDL, name='W65C02', ref='U1', footprint='Package_DIP:DIP-40_W15.24mm',
+           pins=[Pin(num=str(i), name=f'P{i}') for i in range(1, 41)])
+rom = Part(tool=SKIDL, name='27C256', ref='U2', footprint='Package_DIP:DIP-28_W15.24mm',
+           pins=[Pin(num=str(i), name=f'P{i}') for i in range(1, 29)])
+
+vcc += cpu['8']
+vcc += rom['28']
+gnd += cpu['1']
+gnd += rom['14']
+clk += cpu['37']
+resb += cpu['40']
+""",
+            ),
+            (
+                "obscure_motherboard_symbols",
+                """
+from skidl import *
+v12 = Net('12V')
+gnd = Net('GND')
+
+atx24 = Part('Connector', 'ATX_24Pin', ref='J1', footprint='Connector_PinHeader_2.54mm:PinHeader_1x24_P2.54mm_Vertical')
+atx8 = Part('Connector', 'ATX_8Pin', ref='J2', footprint='Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical')
+cpu = Part('AMD', 'Ryzen_AM4', ref='U1', footprint='Package_BGA:UFBGA-1331_40x40mm_Layout37x37_P1.0mm')
+chipset = Part('AMD', 'X570', ref='U2', footprint='Package_BGA:UFBGA-900_31x31mm_Layout30x30_P1.0mm')
+dimm_a = Part('Memory', 'DDR4_DIMM', ref='J3', footprint='Connector_PCBEdge:DDR4_DIMM')
+pciex16 = Part('Connector', 'PCIExpress_x16', ref='J4', footprint='Connector_PCBEdge:BUS_PCI_Express_x16')
+pwm = Part('Power_Management', 'PWM_Controller', ref='U3', footprint='Package_SO:TSSOP-16_4.4x5mm_P0.65mm')
+mosfet = [Part('Transistor_FET', 'N-Channel_MOSFET', ref=f'Q{i+1}', footprint='Package_TO_SOT_SMD:SOT-23') for i in range(4)]
+
+for i in range(1, 25):
+    v12 += atx24[i]
+for i in range(1, 9):
+    v12 += atx8[i]
+for i in range(4):
+    v12 += mosfet[i].d
+    gnd += mosfet[i].s
+""",
+            ),
+            (
+                "mixed_old_new_ics",
+                """
+from skidl import *
+vcc = Net('VCC')
+gnd = Net('GND')
+vin = Net('VIN')
+vout = Net('VOUT')
+
+lm741 = Part(tool=SKIDL, name='LM741', ref='U1', footprint='Package_DIP:DIP-8_W7.62mm',
+             pins=[Pin(num='1',name='OS1'), Pin(num='2',name='IN-'), Pin(num='3',name='IN+'),
+                   Pin(num='4',name='VEE'), Pin(num='5',name='OS2'), Pin(num='6',name='OUT'),
+                   Pin(num='7',name='VCC'), Pin(num='8',name='NC')])
+ads1115 = Part(tool=SKIDL, name='ADS1115', ref='U2', footprint='Package_SO:TSSOP-10_3x3mm_P0.5mm',
+               pins=[Pin(num=str(i), name=f'P{i}') for i in range(1, 11)])
+r1 = Part('Device', 'R', value='10k', footprint='Resistor_SMD:R_0603_1608Metric')
+
+vin += lm741['IN+']
+lm741['OUT'] += vout
+vcc += lm741['VCC']
+gnd += lm741['VEE']
+vcc += ads1115['8']
+gnd += ads1115['3']
+vout += ads1115['4']
+r1[1] += vcc
+r1[2] += vin
+""",
+            ),
             ("ddr1_example", ddr_source),
         ]
 
