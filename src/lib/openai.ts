@@ -33,7 +33,7 @@ function sanitizeOptions(options?: ChatCompletionOptions) {
   const top_p = clampNumber(options?.topP ?? 1, 0, 1);
   const frequency_penalty = clampNumber(options?.frequencyPenalty ?? 0, -2, 2);
   const presence_penalty = clampNumber(options?.presencePenalty ?? 0, -2, 2);
-  const max_tokens = Math.floor(clampNumber(options?.maxTokens ?? 12288, 256, 32768));
+  const max_tokens = Math.floor(clampNumber(options?.maxTokens ?? 4096, 1, 8192));
 
   return {
     temperature,

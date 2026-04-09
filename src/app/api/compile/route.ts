@@ -66,9 +66,163 @@ class AutoPart(OriginalPart):
 
 skidl.Part = AutoPart
 Part = AutoPart
+
+def _autoskidl_make_part(name, pin_count=8, ref='', footprint='', value=''):
+  pin_count = max(2, int(pin_count or 2))
+  kwargs = {
+    'tool': skidl.SKIDL,
+    'name': str(name),
+    'pins': [Pin(num=str(i), name=str(i)) for i in range(1, pin_count + 1)],
+  }
+  if ref:
+    kwargs['ref'] = ref
+  if footprint:
+    kwargs['footprint'] = footprint
+  if value:
+    kwargs['value'] = value
+  return AutoPart(**kwargs)
 `;
 
 const OUTPUT_BLOCK_MARKER = "# AUTOSKIDL_OUTPUT_BLOCK";
+
+const SAFE_LIBRARIES = new Set([
+  "device",
+  "connector_generic",
+  "connector",
+  "power",
+  "simulation_spice",
+]);
+
+const PIN_COUNT_BY_PART_NAME: Record<string, number> = {
+  "atx_24pin": 24,
+  "atx_8pin": 8,
+  "pciexpress_x16": 82,
+  "pciexpress_x1": 18,
+  "m.2_m-key": 67,
+  "m2_m-key": 67,
+  "sata": 7,
+  "usb3.0_header": 20,
+  "usb2.0_header": 9,
+  "header_10pin": 10,
+  "header_4pin": 4,
+  "header_3pin": 3,
+  "usb3.0_typea": 9,
+  "audiojack": 3,
+  "hdmi": 19,
+  "displayport": 20,
+  "eth": 12,
+  "ethernet_phy": 12,
+  "super_io": 16,
+  "pwm_controller": 16,
+  "n-channel_mosfet": 3,
+  "alc1220": 32,
+};
+
+function escapePySingleQuoted(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function inferPinCount(lib: string, part: string): number {
+  const normalized = part.trim().toLowerCase();
+  const byMap = PIN_COUNT_BY_PART_NAME[normalized];
+  if (byMap) return byMap;
+
+  const pinMatch = normalized.match(/(\d+)\s*pin/);
+  if (pinMatch) return Math.max(2, Math.min(parseInt(pinMatch[1], 10), 512));
+
+  const gridMatch = normalized.match(/conn[_-]?(\d+)x(\d+)/);
+  if (gridMatch) {
+    const a = parseInt(gridMatch[1], 10);
+    const b = parseInt(gridMatch[2], 10);
+    return Math.max(2, Math.min(a * b, 512));
+  }
+
+  const xLaneMatch = normalized.match(/x(\d+)/);
+  if (xLaneMatch) {
+    const lanes = parseInt(xLaneMatch[1], 10);
+    if (lanes === 16) return 82;
+    if (lanes === 8) return 49;
+    if (lanes === 4) return 32;
+    if (lanes === 1) return 18;
+    return Math.max(2, Math.min(lanes, 512));
+  }
+
+  if (lib.toLowerCase().includes("connector")) return 8;
+  return 16;
+}
+
+function normalizePartCalls(code: string): string {
+  return code.replace(
+    /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*Part\((.+?)\)\s*$/gm,
+    (line, indent: string, varName: string, argList: string) => {
+      if (/\btool\s*=\s*SKIDL\b/.test(argList)) {
+        return line;
+      }
+
+      const positional = argList.match(/^\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+      if (!positional) {
+        return line;
+      }
+
+      const lib = positional[1];
+      const part = positional[2];
+      const safeLib = SAFE_LIBRARIES.has(lib.trim().toLowerCase());
+
+      if (safeLib) {
+        return line;
+      }
+
+      const refMatch = argList.match(/\bref\s*=\s*['"]([^'"]+)['"]/);
+      const valueMatch = argList.match(/\bvalue\s*=\s*['"]([^'"]+)['"]/);
+      const footprintMatch = argList.match(/\bfootprint\s*=\s*['"]([^'"]+)['"]/);
+
+      const pinCount = inferPinCount(lib, part);
+      const pyPart = escapePySingleQuoted(part);
+
+      const params = [
+        `'${pyPart}'`,
+        `${pinCount}`,
+        `ref='${escapePySingleQuoted(refMatch?.[1] ?? "")}'`,
+        `footprint='${escapePySingleQuoted(footprintMatch?.[1] ?? "")}'`,
+        `value='${escapePySingleQuoted(valueMatch?.[1] ?? "")}'`,
+      ];
+
+      return `${indent}${varName} = _autoskidl_make_part(${params.join(", ")})`;
+    }
+  );
+}
+
+function repairCommonPluralTypos(code: string): string {
+  const readNames = new Set<string>();
+  const declaredNames = new Set<string>();
+
+  for (const match of code.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\[/g)) {
+    readNames.add(match[1]);
+  }
+  for (const match of code.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/gm)) {
+    declaredNames.add(match[1]);
+  }
+
+  let result = code;
+  for (const readName of readNames) {
+    if (declaredNames.has(readName)) {
+      continue;
+    }
+    if (!readName.endsWith("s")) {
+      continue;
+    }
+
+    const singular = readName.slice(0, -1);
+    if (!declaredNames.has(singular)) {
+      continue;
+    }
+
+    const pattern = new RegExp(`\\b${readName}\\[`, "g");
+    result = result.replace(pattern, `${singular}[`);
+  }
+
+  return result;
+}
 
 /**
  * Pre-execution sanitizer: fixes common AI-generated SKiDL mistakes before running.
@@ -84,6 +238,9 @@ const OUTPUT_BLOCK_MARKER = "# AUTOSKIDL_OUTPUT_BLOCK";
  */
 function sanitizeSkidlCode(code: string): string {
   let result = code;
+
+  result = normalizePartCalls(result);
+  result = repairCommonPluralTypos(result);
 
   // Fix: Net('X') += something  →  _net_X = Net('X')\n_net_X += something
   // Handles both single and double quotes, and variations with spaces
@@ -518,8 +675,6 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : "Unknown error occurred";
     console.error("[/api/compile] Error:", message);
     console.error("[/api/compile] Full error:", error);
-    console.error("[/api/compile] Model:", model);
-    console.error("[/api/compile] Has custom API key:", !!apiKey);
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     // Clean up temp directory
