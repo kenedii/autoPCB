@@ -574,7 +574,7 @@ export async function POST(request: NextRequest) {
     await mkdir(workDir, { recursive: true });
 
     // Sanitize + augment the code (fix inline Net() assignment syntax, inject KICAD6, add generators)
-    const codeToRun = sanitizeSkidlCode(skidlCode);
+    let codeToRun = sanitizeSkidlCode(skidlCode);
 
     // First execution attempt
     let execResult = await executeSkidl(codeToRun, workDir);
