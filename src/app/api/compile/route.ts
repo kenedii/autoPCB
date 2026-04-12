@@ -502,9 +502,12 @@ export async function POST(request: NextRequest) {
             result.error = `Original error:\n${errorOutput}\n\nRetry error:\n${execResult.stdout}\n${execResult.stderr}`.trim();
           }
         } catch (fixError) {
-          result.error = `${errorOutput}\n\nAuto-fix attempt failed: ${
-            fixError instanceof Error ? fixError.message : "Unknown error"
-          }`;
+          const fixErrorMsg = fixError instanceof Error ? fixError.message : "Unknown error";
+          console.error("[/api/compile] Auto-fix failed:", fixErrorMsg);
+          console.error("[/api/compile] Full error:", fixError);
+          console.error("[/api/compile] Model:", model);
+          console.error("[/api/compile] Has custom API key:", !!apiKey);
+          result.error = `${errorOutput}\n\nAuto-fix attempt failed: ${fixErrorMsg}`;
         }
       }
     }
@@ -514,6 +517,9 @@ export async function POST(request: NextRequest) {
     const message =
       error instanceof Error ? error.message : "Unknown error occurred";
     console.error("[/api/compile] Error:", message);
+    console.error("[/api/compile] Full error:", error);
+    console.error("[/api/compile] Model:", model);
+    console.error("[/api/compile] Has custom API key:", !!apiKey);
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     // Clean up temp directory

@@ -133,6 +133,9 @@ export async function POST(request: NextRequest) {
     const message =
       error instanceof Error ? error.message : "Unknown error occurred";
     console.error("[/api/generate] Error:", message);
+    console.error("[/api/generate] Full error:", error);
+    console.error("[/api/generate] Model:", model);
+    console.error("[/api/generate] Has custom API key:", !!apiKey);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
