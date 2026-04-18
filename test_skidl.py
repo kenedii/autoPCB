@@ -18,6 +18,7 @@ class AutoPart(OriginalPart):
             super().__init__(*args, **kwargs)
         except Exception:
             name = kwargs.get('name', 'Unknown')
+            desired_ref = kwargs.get('ref')
             if len(args) > 1:
                 name = args[1]
             elif len(args) == 1:
@@ -27,11 +28,17 @@ class AutoPart(OriginalPart):
                 kwargs_new['footprint'] = kwargs['footprint']
             if 'value' in kwargs:
                 kwargs_new['value'] = kwargs['value']
-            if 'ref' in kwargs:
-                kwargs_new['ref'] = kwargs['ref']
             if 'dest' in kwargs:
                 kwargs_new['dest'] = kwargs['dest']
             super().__init__(**kwargs_new)
+            if desired_ref:
+                try:
+                    if getattr(self, 'circuit', None) is not None:
+                        self.ref = desired_ref
+                    else:
+                        self._ref = str(desired_ref)
+                except Exception:
+                    self._ref = str(desired_ref)
 
     def __getitem__(self, key):
         try:
@@ -57,7 +64,7 @@ class AutoPart(OriginalPart):
             return res
         except Exception as e:
             k = str(key)
-            if k.startswith('_') or k in ['ref_prefix', 'circuit', 'logger', 'name', 'ref', 'value', 'footprint', 'hierarchy', 'aliases', 'keywords', 'description', 'datasheet', 'search_text', 'do_erc']:
+            if k.startswith('_') or k in ['ref_prefix', 'circuit', 'logger', 'name', 'ref', 'value', 'footprint', 'hierarchy', 'aliases', 'keywords', 'description', 'datasheet', 'search_text', 'do_erc', 'tag', 'tag_ref_name', 'hiername', 'hiertuple']:
                 raise e
             p = Pin(num=k, name=k)
             self += p

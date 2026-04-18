@@ -1,0 +1,33 @@
+# Simplified Dockerfile - single stage, focus on reliability
+
+FROM node:20-slim
+
+WORKDIR /app
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy app files (will be copied by docker build context)
+COPY . .
+
+# Install dependencies in a way that's more robust
+RUN npm install --production=false 2>&1 || npm install 2>&1
+
+# Build the Next.js app
+RUN npm run build 2>&1
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --home /home/nextjs nextjs
+
+# Prepare runtime files
+RUN mkdir -p /app/public/emails && \
+    chown -R nextjs:nodejs /app && \
+    chown -R nextjs:nodejs /home/nextjs
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
