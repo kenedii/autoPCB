@@ -139,7 +139,7 @@ class TestSkidlRobustness(unittest.TestCase):
             self.assertIn("circuit_sklib.py", files, msg=f"{name} did not generate SKiDL helper library output.")
 
     def test_one_test_to_cover_everything(self):
-        ddr_source = (ROOT / "example_ddr1.py").read_text(encoding="utf-8")
+        ddr_source = (ROOT / "examples" / "skidl" / "example_ddr1.py").read_text(encoding="utf-8")
 
         circuits = [
             (
