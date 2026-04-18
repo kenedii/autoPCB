@@ -1,61 +1,345 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to AutoPCB</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             padding: 20px;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
         .header {
-            background-color: #000;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             color: #fff;
-            padding: 20px;
+            padding: 40px 30px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(230, 126, 34, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -5%;
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(52, 152, 219, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .logo-section {
+            position: relative;
+            z-index: 2;
+            margin-bottom: 20px;
+        }
+        .logo-icon {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #e67e22, #3498db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.95;
         }
         .content {
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-top: none;
+            padding: 40px 30px;
+            position: relative;
         }
-        .footer {
-            text-align: center;
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+        }
+        .greeting strong {
+            color: #0f3460;
+        }
+        .intro-text {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 30px;
+            line-height: 1.8;
+            border-left: 4px solid #e67e22;
+            padding-left: 16px;
+            background: #f9f9f9;
+            padding: 16px;
+            border-radius: 4px;
+        }
+        .features-section {
+            margin-bottom: 35px;
+        }
+        .features-section h2 {
+            font-size: 22px;
+            color: #0f3460;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8f1f8 100%);
+            border: 1px solid #d0e8f2;
+            border-radius: 8px;
+            padding: 18px;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            border-color: #3498db;
+        }
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .feature-card h3 {
+            font-size: 14px;
+            color: #0f3460;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .feature-card p {
             font-size: 12px;
-            color: #777;
-            margin-top: 20px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+            color: #fff;
+        }
+        .cta-section h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .cta-section p {
+            font-size: 14px;
+            margin-bottom: 20px;
+            opacity: 0.95;
         }
         .button {
             display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: #fff;
+            padding: 14px 40px;
+            background: #fff;
+            color: #e67e22;
             text-decoration: none;
-            border-radius: 5px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #d0e8f2, transparent);
+            margin: 25px 0;
+        }
+        .additional-info {
+            background: #f0f8ff;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 25px 0;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.7;
+        }
+        .footer {
+            background: #f5f7fa;
+            padding: 25px 30px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer p {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .social-links {
             margin-top: 15px;
+            font-size: 12px;
+        }
+        .social-links a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 8px;
+        }
+        .email-highlight {
+            background: linear-gradient(135deg, #e67e22, #f39c12);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+        .circuit-decoration {
+            display: inline-block;
+            color: #3498db;
+            font-size: 12px;
+            margin: 0 4px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Welcome to AutoPCB!</h1>
-    </div>
-    <div class="content">
-        <p>Hi there,</p>
-        <p>Thank you for signing up for <strong>AutoPCB</strong>. we're thrilled to have you on board!</p>
-        <p>You've successfully created an account with the email: <strong>{{email}}</strong>.</p>
-        <p>AutoPCB is the first AI-native PCB editor, designed to help you turn your thoughts into printed circuit boards in record time.</p>
-        <p>Head over to the design panel to start your first project:</p>
-        <a href="{{appUrl}}/design" class="button">Start Designing Now</a>
-        <p>If you have any questions, feel free to reply to this email.</p>
-        <p>Best regards,<br>The AutoPCB Team</p>
-    </div>
-    <div class="footer">
-        <p>&copy; 2026 AutoPCB. All rights reserved.</p>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- PCB Board background -->
+                        <rect x="10" y="10" width="80" height="80" rx="4" fill="#1a4d7a" stroke="#e67e22" stroke-width="2"/>
+                        <!-- Circuit traces -->
+                        <path d="M 30 30 L 50 30 L 50 50 L 70 50" stroke="#3498db" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <path d="M 30 70 L 30 50 L 50 50" stroke="#2ecc71" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <!-- Component nodes -->
+                        <circle cx="30" cy="30" r="4" fill="#e67e22"/>
+                        <circle cx="50" cy="50" r="5" fill="#3498db"/>
+                        <circle cx="70" cy="50" r="4" fill="#2ecc71"/>
+                        <circle cx="30" cy="70" r="4" fill="#e74c3c"/>
+                    </svg>
+                </div>
+            </div>
+            <h1>Welcome to AutoPCB</h1>
+            <p class="subtitle">AI-Powered PCB Design</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <p class="greeting">Hi <strong>{{email}}</strong>,</p>
+            
+            <div class="intro-text">
+                🎉 Thank you for joining AutoPCB! You've taken the first step toward revolutionizing your PCB design workflow. We're thrilled to have you on board!
+            </div>
+
+            <!-- Features Section -->
+            <div class="features-section">
+                <h2>
+                    <span>⚡</span> What You Can Do
+                </h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <h3>AI-Powered Design</h3>
+                        <p>Use natural language to describe your circuits and let AI handle the heavy lifting.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚙️</div>
+                        <h3>Smart Schematics</h3>
+                        <p>Create complex schematics with intelligent component placement and routing.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>Advanced Simulation</h3>
+                        <p>Validate your designs with powerful circuit analysis tools before fabrication.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3>Real-Time Collaboration</h3>
+                        <p>Work with team members in real-time on shared PCB projects.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📤</div>
+                        <h3>Multiple Export Formats</h3>
+                        <p>Export to SVG, PDF, Netlist, and industry-standard Gerber files.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📚</div>
+                        <h3>Component Library</h3>
+                        <p>Access thousands of components with verified footprints and datasheets.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Call to Action -->
+            <div class="cta-section">
+                <h3>🚀 Ready to Design?</h3>
+                <p>Jump into the design panel and create your first project!</p>
+                <a href="{{appUrl}}/design" class="button">Start Your First Design</a>
+            </div>
+
+            <!-- Additional Info -->
+            <div class="additional-info">
+                <strong>💡 Pro Tip:</strong> Check out our interactive tutorials and design guides to get the most out of AutoPCB. You can access them anytime from your dashboard to master advanced techniques and best practices.
+            </div>
+
+            <p style="font-size: 14px; color: #555; margin-top: 25px;">
+                Have questions? We're here to help! Reach out to our support team at any time—we're always happy to assist you in bringing your PCB designs to life.
+            </p>
+
+            <p style="margin-top: 20px; color: #0f3460; font-weight: 500;">
+                Best regards,<br>
+                <strong>The AutoPCB Team</strong>
+                <span class="circuit-decoration">◊◊◊</span>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>AutoPCB</strong> — The Future of PCB Design</p>
+            <p>&copy; 2026 AutoPCB. All rights reserved.</p>
+            <div class="social-links">
+                <a href="{{appUrl}}">Visit Website</a> •
+                <a href="{{appUrl}}/about">Learn More</a> •
+                <a href="{{appUrl}}/pricing">View Plans</a>
+            </div>
+        </div>
     </div>
 </body>
 </html>

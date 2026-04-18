@@ -8,7 +8,11 @@ import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { verifySession } from "@/lib/auth";
+import db from "@/lib/db";
 import JSZip from "jszip";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const MONKEY_PATCH = `
 import skidl
@@ -337,6 +341,37 @@ interface CompileResult {
   lib?: string;
 }
 
+async function buildCompileFinishedEmailHtml(options: {
+  recipientEmail: string;
+  appUrl: string;
+  artifacts: string[];
+  retryUsed: boolean;
+}): Promise<string> {
+  const { recipientEmail, appUrl, artifacts, retryUsed } = options;
+  
+  // Build artifact items
+  const artifactItems = artifacts.length
+    ? artifacts
+        .map(
+          (name) =>
+            `<li style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;background:#ffffff;color:#0f172a;font-size:13px;">${name}</li>`
+        )
+        .join("")
+    : `<li style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#ffffff;color:#475569;font-size:13px;">No artifacts were detected.</li>`;
+
+  // Load template
+  const templatePath = join(process.cwd(), "src/utils/emailtemplates/compile-complete.html");
+  let template = await readFile(templatePath, "utf-8");
+
+  // Replace placeholders
+  template = template.replace("{{recipientEmail}}", recipientEmail);
+  template = template.replace("{{appUrl}}", appUrl);
+  template = template.replace("{{artifactItems}}", artifactItems);
+  template = template.replace("{{retryUsedText}}", retryUsed ? " after an automatic retry" : "");
+
+  return template;
+}
+
 async function executeSkidl(
   code: string,
   workDir: string
@@ -575,6 +610,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { skidlCode, model = "gpt-4o", apiKey } = body;
 
+    const user = await db.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, email: true, compileEmailEnabled: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     if (!skidlCode || typeof skidlCode !== "string") {
       return NextResponse.json(
         { error: "SKiDL code is required" },
@@ -705,6 +749,46 @@ export async function POST(request: NextRequest) {
           console.error("[/api/compile] Has custom API key:", !!apiKey);
           result.error = `${errorOutput}\n\nAuto-fix attempt failed: ${fixErrorMsg}`;
         }
+      }
+    }
+
+    if (result.success && user.compileEmailEnabled && process.env.RESEND_API_KEY) {
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const forcedRecipient = process.env.RESEND_TEST_EMAIL?.trim();
+        const recipient = forcedRecipient || user.email;
+        const artifacts = [
+          result.kicadPcb ? "circuit.kicad_pcb" : null,
+          result.kicadSch ? "circuit.kicad_sch" : null,
+          result.netlist ? "circuit.net" : null,
+          result.spice ? "circuit.spice" : null,
+          result.schematicSvg ? "circuit.svg" : null,
+          result.gerberZipBase64 ? "gerber.zip" : null,
+          result.drillZipBase64 ? "drill.zip" : null,
+          result.stepBase64 ? "circuit.step" : null,
+        ].filter(Boolean) as string[];
+
+        const html = await buildCompileFinishedEmailHtml({
+          recipientEmail: user.email,
+          appUrl,
+          artifacts,
+          retryUsed: !!result.retryUsed,
+        });
+
+        const { data, error } = await resend.emails.send({
+          from: "onboarding@resend.dev",
+          to: recipient,
+          subject: "Your AutoPCB compile is complete",
+          html,
+        });
+
+        if (error) {
+          console.error("[/api/compile][Email] Resend error:", JSON.stringify(error, null, 2));
+        } else {
+          console.log(`[/api/compile][Email] Notification sent. id=${data?.id ?? "unknown"} recipient=${recipient}`);
+        }
+      } catch (emailError) {
+        console.error("[/api/compile][Email] Unexpected error:", emailError);
       }
     }
 

@@ -58,62 +58,61 @@ export async function POST(request: NextRequest) {
     await createSession({ userId, email });
 
     // Send welcome email
-    /* try {
+    try {
+      console.log(`[Email] Starting send process to: ${email}`);
       const templatePath = path.join(process.cwd(), "src/utils/emailtemplates/welcome.html");
-      console.log(`[Email] Attempting to send welcome email to ${email}`);
       console.log(`[Email] Template path: ${templatePath}`);
       
-      if (!fs.existsSync(templatePath)) {
-        console.error(`[Email] Template NOT FOUND at ${templatePath}`);
-      } else {
+      if (fs.existsSync(templatePath)) {
         let html = fs.readFileSync(templatePath, "utf-8");
-        
-        // Basic placeholder replacement
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         html = html.replace(/{{email}}/g, email).replace(/{{appUrl}}/g, appUrl);
 
-        // Force email to the verified Resend account owner (christopherkenedi04@gmail.com)
-        // so that the user actually receives a real email during testing.
-        const deliveryEmail = "christopherkenedi04@gmail.com";
-        console.log(`[Email] Sending via Resend to verified owner: ${deliveryEmail} (originally meant for: ${email})`);
+        console.log(`[Email] Resend API Key present: ${!!process.env.RESEND_API_KEY}`);
+        const forcedRecipient = process.env.RESEND_TEST_EMAIL?.trim();
+        const recipient = forcedRecipient || email;
+        if (forcedRecipient) {
+          html = `<p><strong>Original signup email:</strong> ${email}</p>${html}`;
+          console.log(`[Email] RESEND_TEST_EMAIL enabled, sending to sandbox recipient: ${recipient}`);
+        }
         
         const { data, error: resendError } = await resend.emails.send({
-          from: "AutoPCB <onboarding@resend.dev>",
-          to: deliveryEmail,
-          subject: `Welcome to AutoPCB! (Sent on behalf of ${email})`,
+          from: "onboarding@resend.dev",
+          to: recipient,
+          subject: "Welcome to AutoPCB!",
           html: html,
         });
 
         if (resendError) {
-          console.error("[Email] Resend Error:", JSON.stringify(resendError, null, 2));
+          console.error("[Email] Resend Error details:", JSON.stringify(resendError, null, 2));
           
-          // Sandbox Fallback: If 403 Forbidden (restricted testing recipient)
-          if ((resendError as any).statusCode === 403) {
-            const sandboxPath = path.join(process.cwd(), "public", "emails");
-            if (!fs.existsSync(sandboxPath)) {
-              fs.mkdirSync(sandboxPath, { recursive: true });
-            }
-            const fileName = `welcome-${email.replace(/[^a-zA-Z0-9]/g, "_")}.html`;
-            const filePath = path.join(sandboxPath, fileName);
-            fs.writeFileSync(filePath, html);
-            console.log(`[Email] Sandbox Fallback activated. Email saved to: ${filePath}`);
-            console.log(`[Email] ACCESS VIA: http://localhost:3001/api/emails/${fileName}`);
+          // Sandbox Fallback: If 403 Forbidden or other Resend failure
+          const sandboxPath = path.join(process.cwd(), "public/emails");
+          if (!fs.existsSync(sandboxPath)) {
+            fs.mkdirSync(sandboxPath, { recursive: true });
           }
+          const fileName = `welcome-${email.replace(/[^a-zA-Z0-9]/g, "_")}.html`;
+          const filePath = path.join(sandboxPath, fileName);
+          fs.writeFileSync(filePath, html);
+          console.log(`[Email] Fallback: Email saved to public/emails/${fileName}`);
         } else {
-          console.log("[Email] Sent successfully. ID:", data?.id);
+          console.log("[Email] Sent successfully via Resend. ID:", data?.id);
         }
+      } else {
+        console.error(`[Email] Template NOT FOUND at ${templatePath}`);
       }
     } catch (emailError: any) {
-      console.error("[Email] Unexpected error:", emailError);
+      console.error("[Email] Unexpected error:", emailError.message);
+      console.error("[Email] Stack trace:", emailError.stack);
       
       // Secondary fallback for any other error
       try {
         const sandboxPath = path.join(process.cwd(), "public", "emails");
         if (!fs.existsSync(sandboxPath)) fs.mkdirSync(sandboxPath, { recursive: true });
-        const fileName = `error-fallback-${email.replace(/[^a-zA-Z0-0]/g, "_")}.html`;
+        const fileName = `error-fallback-${email.replace(/[^a-zA-Z0-9]/g, "_")}.html`;
         fs.writeFileSync(path.join(sandboxPath, fileName), "Registration succeeded but email failed. Check logs.");
       } catch (e) {}
-    } */
+    }
 
     return NextResponse.json({
       success: true,
