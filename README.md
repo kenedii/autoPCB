@@ -49,15 +49,15 @@ cp .env.example .env
 
 Open `.env` and set the required values:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | Use `postgresql://postgres:password@db:5432/autopcb_db` for Docker |
-| `JWT_SECRET` | ✅ | Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `RESEND_API_KEY` | ✅ | Sign up at [resend.com](https://resend.com) and get your API key |
-| `OPENAI_API_KEY` or `DEEPSEEK_API_KEY` | ✅ | At least one AI provider required |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Set to `http://localhost:3000` for local, or your domain for production |
-| `RESEND_TEST_EMAIL` | ❌ | (Dev only) Override recipient email for sandbox testing |
-| `NODE_ENV` | ❌ | Default: `development` |
+| Variable                               | Required | Description                                                                               |
+| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                         | ✅       | Use `postgresql://postgres:password@db:5432/autopcb_db` for Docker                        |
+| `JWT_SECRET`                           | ✅       | Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `RESEND_API_KEY`                       | ✅       | Sign up at [resend.com](https://resend.com) and get your API key                          |
+| `OPENAI_API_KEY` or `DEEPSEEK_API_KEY` | ✅       | At least one AI provider required                                                         |
+| `NEXT_PUBLIC_APP_URL`                  | ✅       | Set to `http://localhost:3000` for local, or your domain for production                   |
+| `RESEND_TEST_EMAIL`                    | ❌       | (Dev only) Override recipient email for sandbox testing                                   |
+| `NODE_ENV`                             | ❌       | Default: `development`                                                                    |
 
 ### Step 3: Build and Start
 
@@ -66,6 +66,7 @@ docker compose up -d --build
 ```
 
 This will:
+
 - Download and build the Node.js application container
 - Start a PostgreSQL database
 - Apply all database migrations automatically
@@ -84,14 +85,14 @@ docker compose ps
 
 ### Useful Commands
 
-| Command | Description |
-|---------|-------------|
-| `docker compose up -d --build` | Start/rebuild all containers |
-| `docker compose down` | Stop all containers |
-| `docker compose logs -f app` | View application logs in real-time |
-| `docker compose logs -f db` | View database logs |
-| `docker compose exec app npx prisma migrate dev` | Run pending migrations manually |
-| `docker compose exec app npx prisma studio` | Open Prisma Studio for database inspection |
+| Command                                          | Description                                |
+| ------------------------------------------------ | ------------------------------------------ |
+| `docker compose up -d --build`                   | Start/rebuild all containers               |
+| `docker compose down`                            | Stop all containers                        |
+| `docker compose logs -f app`                     | View application logs in real-time         |
+| `docker compose logs -f db`                      | View database logs                         |
+| `docker compose exec app npx prisma migrate dev` | Run pending migrations manually            |
+| `docker compose exec app npx prisma studio`      | Open Prisma Studio for database inspection |
 
 ## 💻 Local Development (Without Docker)
 
@@ -134,6 +135,7 @@ cp .env.example .env
 ```
 
 For local development:
+
 - `DATABASE_URL="postgresql://postgres:password@localhost:5432/autopcb_db"`
 - `NEXT_PUBLIC_APP_URL="http://localhost:3001"`
 
@@ -171,6 +173,7 @@ Refer to [.env.example](.env.example) for all available configuration options wi
 3. Set `RESEND_API_KEY` in your `.env`
 
 **For Development/Sandbox Testing**:
+
 - Set `RESEND_TEST_EMAIL` to redirect all emails to a verified address
 - This is useful for testing without sending emails to real users
 
@@ -184,13 +187,17 @@ Choose at least one:
 ## 📧 Email Features
 
 ### Registration Emails
+
 New users automatically receive a welcome email upon signup, containing:
+
 - Account confirmation
 - Link to the design workspace
 - Quick start guide
 
 ### Compile Completion Notifications
+
 When enabled in Account Settings:
+
 - Users receive an email when circuit compilation completes
 - Email includes links to view the circuit
 - Lists all generated artifacts (KiCad files, Gerbers, STEP files, etc.)
@@ -206,10 +213,10 @@ Test the complete registration and settings flow:
 
 ```bash
 # Docker environment
-docker compose exec app node test_settings.js
+docker compose exec app node tests/test_settings.js
 
 # Local environment
-node test_settings.js
+node tests/test_settings.js
 ```
 
 ### Test Compile Notifications
@@ -218,30 +225,34 @@ Verify compile emails are sent correctly:
 
 ```bash
 # Docker environment
-docker compose exec app node test_compile_notification.js
+docker compose exec app node tests/test_compile_notification.js
 
 # Local environment
-node test_compile_notification.js
+node tests/test_compile_notification.js
 ```
 
 ## 🐛 Troubleshooting
 
 ### Application won't start
+
 - Check logs: `docker compose logs app`
 - Ensure ports 3000 (app) and 5433 (database) are available
 - Try rebuilding: `docker compose down -v && docker compose up -d --build`
 
 ### Database connection error
+
 - Verify `DATABASE_URL` matches your setup
 - For Docker: use `postgresql://postgres:password@db:5432/autopcb_db`
 - For local: ensure PostgreSQL is running
 
 ### Python/SKiDL compilation errors
+
 - Verify Python 3.11+ is installed: `python --version`
 - Check SKiDL installation: `pip list | grep skidl`
 - For Docker: errors indicate the Python environment wasn't set up correctly; rebuild with `docker compose up -d --build`
 
 ### Email not sending
+
 - Verify `RESEND_API_KEY` is correct
 - In development, set `RESEND_TEST_EMAIL` to a verified address
 - Check Resend sandbox restrictions if in trial mode
@@ -287,6 +298,7 @@ This project is licensed under the MIT License. See LICENSE file for details.
 ## 🙋 Support
 
 For issues, questions, or feature requests:
+
 - Open an issue on [GitHub](https://github.com/kenedii/autoPCB/issues)
 - Check existing documentation in this README
 - Review error messages in application logs

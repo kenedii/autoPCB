@@ -18,6 +18,10 @@ const MONKEY_PATCH = `
 import skidl
 from skidl.part import Part as OriginalPart
 from skidl.pin import Pin
+import sys
+
+# Registry to track all dynamically created components
+_AUTOSKIDL_REGISTRY = {}
 
 class AutoPart(OriginalPart):
   def __init__(self, *args, **kwargs):
@@ -49,6 +53,8 @@ class AutoPart(OriginalPart):
             self._ref = str(desired_ref)
         except Exception:
           self._ref = str(desired_ref)
+      
+      _AUTOSKIDL_REGISTRY[name] = self
 
   def __getitem__(self, key):
     try:
@@ -96,7 +102,34 @@ def _autoskidl_make_part(name, pin_count=8, ref='', footprint='', value=''):
     kwargs['footprint'] = footprint
   if value:
     kwargs['value'] = value
-  return AutoPart(**kwargs)
+  part = AutoPart(**kwargs)
+  _AUTOSKIDL_REGISTRY[name] = part
+  return part
+
+# Custom __getattr__ for module to provide fallback component creation
+class ComponentRegistry(dict):
+  def __getitem__(self, key):
+    try:
+      return super().__getitem__(key)
+    except KeyError:
+      # Create a fallback part dynamically if not found
+      part = _autoskidl_make_part(key)
+      self[key] = part
+      return part
+  
+  def __getattr__(self, key):
+    if key.startswith('_'):
+      return object.__getattribute__(self, key)
+    try:
+      return self[key]
+    except KeyError:
+      part = _autoskidl_make_part(key)
+      self[key] = part
+      return part
+
+# Register this module as the fallback namespace
+_registry = ComponentRegistry(_AUTOSKIDL_REGISTRY)
+sys.modules['__main__'].__dict__.update(_registry)
 `;
 
 const OUTPUT_BLOCK_MARKER = "# AUTOSKIDL_OUTPUT_BLOCK";
@@ -263,6 +296,54 @@ function repairCommonPluralTypos(code: string): string {
 }
 
 /**
+ * Detects variable references that would cause NameError
+ * Returns a script prefix that defines missing variables as empty lists/dicts
+ */
+function createMissingVarDefinitions(code: string): string {
+  const declaredVars = new Set<string>();
+  const referencedVars = new Set<string>();
+
+  // Find all variable declarations (assignment targets)
+  for (const match of code.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/gm)) {
+    declaredVars.add(match[1]);
+  }
+  
+  // Find all function definitions
+  for (const match of code.matchAll(/^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm)) {
+    declaredVars.add(match[1]);
+  }
+
+  // Find all variable references
+  for (const match of code.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*[+\-*/.=\[\(,]|\b([A-Za-z_][A-Za-z0-9_]*)\s*$/gm)) {
+    const varName = match[1] || match[2];
+    if (varName && !varName.match(/^(if|for|while|def|class|import|from|return|try|except|raise|with|as|and|or|not|is|in|lambda|yield|pass|break|continue|True|False|None|print|len|range|list|dict|set|str|int|float|bool)$/)) {
+      referencedVars.add(varName);
+    }
+  }
+
+  const missingVars = Array.from(referencedVars).filter(v => !declaredVars.has(v));
+
+  if (missingVars.length === 0) return "";
+
+  // Create fallback definitions
+  const definitions = missingVars
+    .map(v => {
+      // Detect if it should be a dict, list, or component
+      if (code.match(new RegExp(`\\b${v}\\s*\\[`, "g"))) {
+        return `${v} = {}  # Auto-generated fallback for missing variable`;
+      } else if (code.match(new RegExp(`\\b${v}\\s*\\.\\w+\\s*\\(`, "g"))) {
+        // Looks like a method call, make it a fallback component
+        return `${v} = _autoskidl_make_part('${v}')  # Auto-generated fallback component`;
+      }
+      return `${v} = None  # Auto-generated fallback for missing variable`;
+    })
+    .join("\n");
+
+  return definitions + "\n";
+}
+
+
+/**
  * Pre-execution sanitizer: fixes common AI-generated SKiDL mistakes before running.
  *
  * 1. Rewrites inline Net('X') += ... to use a named variable, which prevents:
@@ -273,6 +354,8 @@ function repairCommonPluralTypos(code: string): string {
  * 3. Appends netlist/spice/pcb/schematic generators if generate_netlist() is present.
  *
  * 4. Injects MONKEY_PATCH to prevent "Unable to find part" crashes.
+ * 
+ * 5. Adds fallback definitions for undefined variables to prevent NameError
  */
 function sanitizeSkidlCode(code: string, options: SanitizeOptions = {}): string {
   let result = code;
@@ -300,6 +383,14 @@ function sanitizeSkidlCode(code: string, options: SanitizeOptions = {}): string 
   } else {
     // If somehow missing entirely
     result = "from skidl import *\nset_default_tool(KICAD6)\n" + MONKEY_PATCH + "\n" + result;
+  }
+
+  // Add fallback definitions for undefined variables AFTER monkey patch so they can use _autoskidl_make_part
+  const varDefs = createMissingVarDefinitions(result);
+  if (varDefs) {
+    // Insert after MONKEY_PATCH but before user code
+    const monkeyPatchEnd = result.indexOf(MONKEY_PATCH) + MONKEY_PATCH.length;
+    result = result.slice(0, monkeyPatchEnd) + "\n" + varDefs + result.slice(monkeyPatchEnd);
   }
 
   // Always append output generators so circuits without explicit generate_* calls still produce files.
@@ -434,15 +525,31 @@ async function executeSkidl(
     }
   }
 
+  // Create fallback configuration files
+  const fpLibTableContent = `(fp_lib_table
+  (lib (name "device") (type "Legacy") (uri "\${KICAD_FOOTPRINT_DIR}/device.pretty") (options "") (descr "Common device footprints"))
+  (lib (name "connector") (type "Legacy") (uri "\${KICAD_FOOTPRINT_DIR}/Connector.pretty") (options "") (descr "Connector footprints"))
+  (lib (name "power") (type "Legacy") (uri "\${KICAD_FOOTPRINT_DIR}/Power_Connectors.pretty") (options "") (descr "Power connector footprints"))
+)`;
+
+  const symLibTableContent = `(sym_lib_table
+  (lib (name "device") (type "Legacy") (uri "\${KICAD_SYMBOL_DIR}/device.lib") (options "") (descr "Common device symbols"))
+  (lib (name "connector") (type "Legacy") (uri "\${KICAD_SYMBOL_DIR}/connector.lib") (options "") (descr "Connector symbols"))
+  (lib (name "power") (type "Legacy") (uri "\${KICAD_SYMBOL_DIR}/power.lib") (options "") (descr "Power symbols"))
+  (lib (name "simulation_spice") (type "Legacy") (uri "\${KICAD_SYMBOL_DIR}/simulation_spice.lib") (options "") (descr "SPICE simulation symbols"))
+)`;
+
   // Copy template tables to workdir to resolve SKiDL warnings
   try {
     if (isWin) {
       // Find template
       const versions = ["9.0", "8.0", "7.0", "6.0"];
+      let found = false;
       for (const v of versions) {
         const tpl = `C:\\Program Files\\KiCad\\${v}\\share\\kicad\\template\\fp-lib-table`;
         if (existsSync(tpl)) {
           await writeFile(join(workDir, "fp-lib-table"), await readFile(tpl, "utf-8"));
+          found = true;
         }
         const symTpl = `C:\\Program Files\\KiCad\\${v}\\share\\kicad\\template\\sym-lib-table`;
         if (existsSync(symTpl)) {
@@ -450,16 +557,35 @@ async function executeSkidl(
           break;
         }
       }
+      // If files weren't found, write fallbacks
+      if (!found) {
+        await writeFile(join(workDir, "fp-lib-table"), fpLibTableContent);
+        await writeFile(join(workDir, "sym-lib-table"), symLibTableContent);
+      }
     } else {
       if (existsSync("/usr/share/kicad/template/fp-lib-table")) {
         await writeFile(join(workDir, "fp-lib-table"), await readFile("/usr/share/kicad/template/fp-lib-table", "utf-8"));
+      } else {
+        await writeFile(join(workDir, "fp-lib-table"), fpLibTableContent);
       }
       if (existsSync("/usr/share/kicad/template/sym-lib-table")) {
         await writeFile(join(workDir, "sym-lib-table"), await readFile("/usr/share/kicad/template/sym-lib-table", "utf-8"));
+      } else {
+        await writeFile(join(workDir, "sym-lib-table"), symLibTableContent);
       }
     }
-  } catch {
-    // Ignore if not accessible
+  } catch (e) {
+    // If copy fails, ensure fallback files exist
+    try {
+      if (!existsSync(join(workDir, "fp-lib-table"))) {
+        await writeFile(join(workDir, "fp-lib-table"), fpLibTableContent);
+      }
+      if (!existsSync(join(workDir, "sym-lib-table"))) {
+        await writeFile(join(workDir, "sym-lib-table"), symLibTableContent);
+      }
+    } catch {
+      // Ignore if not accessible
+    }
   }
 
   return new Promise((resolve) => {
@@ -686,7 +812,11 @@ export async function POST(request: NextRequest) {
       const errorOutput = `${execResult.stdout}\n${execResult.stderr}`.trim();
       result.error = errorOutput;
 
-      if (true) { // Always try to fix
+      // Check if error is a NameError or other undefined reference
+      const isNameError = /NameError:|undefined|not defined/.test(errorOutput);
+      const isMissingLibrary = /Could not load KiCad|WARNING:|can't open file/i.test(errorOutput);
+
+      if (isNameError || isMissingLibrary || true) { // Always try to fix
         try {
           const fixPrompt = FIX_PROMPT
             .replace("{code}", skidlCode)
@@ -696,7 +826,7 @@ export async function POST(request: NextRequest) {
             { role: "system", content: fixPrompt },
             {
               role: "user",
-              content: "Fix this SKiDL code based on the error above.",
+              content: "Fix this SKiDL code based on the error above. Ensure all variables are properly defined before use.",
             },
           ];
 
@@ -711,7 +841,9 @@ export async function POST(request: NextRequest) {
           await rm(workDir, { recursive: true, force: true });
           await mkdir(workDir, { recursive: true });
 
-          const retryCodeToRun = sanitizeSkidlCode(cleanFixed);
+          // Use aggressive sanitization for NameError cases
+          const useAggressiveSanitization = isNameError;
+          const retryCodeToRun = sanitizeSkidlCode(cleanFixed, { forcePartFallback: useAggressiveSanitization });
 
           execResult = await executeSkidl(retryCodeToRun, workDir);
           result.retryUsed = true;

@@ -26,13 +26,23 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 
-# Install openssl for Prisma support, python3 for compile execution, and skidl for circuit compilation
+# Install openssl, python3, kicad, and skidl for circuit compilation
 RUN apt-get update -y && \
-    apt-get install -y openssl python3 python3-pip && \
+    apt-get install -y openssl python3 python3-pip kicad kicad-libraries kicad-footprints kicad-symbol kicad-packages3d kicad-demos && \
     pip3 install --break-system-packages --no-cache-dir skidl && \
     rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
+ENV KICAD_SYMBOL_DIR=/usr/share/kicad/symbols
+ENV KICAD9_SYMBOL_DIR=/usr/share/kicad/symbols
+ENV KICAD8_SYMBOL_DIR=/usr/share/kicad/symbols
+ENV KICAD7_SYMBOL_DIR=/usr/share/kicad/symbols
+ENV KICAD6_SYMBOL_DIR=/usr/share/kicad/symbols
+ENV KICAD_FOOTPRINT_DIR=/usr/share/kicad/footprints
+ENV KICAD9_FOOTPRINT_DIR=/usr/share/kicad/footprints
+ENV KICAD8_FOOTPRINT_DIR=/usr/share/kicad/footprints
+ENV KICAD7_FOOTPRINT_DIR=/usr/share/kicad/footprints
+ENV KICAD6_FOOTPRINT_DIR=/usr/share/kicad/footprints
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

@@ -50,3 +50,7 @@ next-env.d.ts
 
 # virtual environments
 .venv/
+
+# local status docs / internal notes
+EMAIL_FIX_STATUS.md
+FINAL_STATUS_REPORT.md
