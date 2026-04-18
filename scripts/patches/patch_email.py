@@ -6,7 +6,7 @@ import sys
 import re
 from pathlib import Path
 
-BUNDLE_FILE = Path("x:/coding_projects/Auto-SKIDL/patch_bundle.js")
+BUNDLE_FILE = Path(__file__).resolve().parent / "patch_bundle.js"
 
 # Read the bundle
 content = BUNDLE_FILE.read_text(encoding="utf-8")

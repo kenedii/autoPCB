@@ -12,7 +12,11 @@
 
 # testing
 /coverage
-example_ddr1.py
+
+# generated SKiDL REPL artifacts
+skidl_REPL.erc
+skidl_REPL.log
+skidl_REPL_sklib.py
 
 # next.js
 /.next/
